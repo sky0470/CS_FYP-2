@@ -20,7 +20,7 @@ class ManualPolicy:
             self.action_mapping[pygame.K_LEFT] = 0  # left
             self.action_mapping[pygame.K_RIGHT] = 1  # right
 
-    def __call__(self, observation, agent):
+    def __call__(self, observation, agent, rwd):
         # only trigger when we are the correct agent
         assert (
             agent == self.agent
@@ -40,14 +40,12 @@ class ManualPolicy:
                     # backspace to reset
                     self.env.reset()
 
+                elif event.key == pygame.K_p:
+                    print(rwd)
+
                 elif event.key == pygame.K_TAB:
                     self.agent_id = (self.agent_id + 1) % self.env.num_agents
                     self.agent = self.env.agents[self.agent_id]
-
-                elif event.key == pygame.K_p:
-                    print(self.env.rewards)
-                    for k,v in self.env.rewards.items():
-                        print(f'{k} : {v*3}')
 
                 elif event.key in self.action_mapping:
                     action = self.action_mapping[event.key]
@@ -63,28 +61,23 @@ if __name__ == "__main__":
     from pettingzoo.sisl import pursuit_v4
 
     clock = pygame.time.Clock()
+    max_fps = 5
+    game_time = 10
 
-    env = pursuit_v4.env(render_mode='human', freeze_evaders=True, n_evaders=5, n_pursuers=3, shared_reward=False, n_catch=1, surround=True)
-    env.reset()
+    env = pursuit_v4.parallel_env(max_cycles=max_fps*game_time, render_mode='human', freeze_evaders=True, n_evaders=5, n_pursuers=3, shared_reward=False, n_catch=1, surround=False)
+    obs = env.reset()
+    rwd = {}
 
     manual_policy = ManualPolicy(env)
 
-    for agent in env.agent_iter():
-        clock.tick(5)
-        # clock.tick(env.metadata["render_fps"])
+    while env.agents:
+        clock.tick(max_fps)
+        actions = {}
+        for agent in env.agents:
+            if agent == manual_policy.agent:
+                actions[agent] = manual_policy(obs, agent, rwd)
+            else:
+                actions[agent] = 4
 
-        observation, reward, termination, truncation, info = env.last()
-        print(reward)
-
-        if agent == manual_policy.agent:
-            action = manual_policy(observation, agent)
-        else:
-            action = 4 # not moving
-            # action = env.action_space(agent).sample()
-
-        env.step(action)
-
-        env.render()
-
-        if termination or truncation:
-            env.reset()
+        obs, rwd, term, trunc, info = env.step(actions)
+    env.close()
