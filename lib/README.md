@@ -1,7 +1,21 @@
-## pursuit_base
+Customizing our game environment
+===
+## Edit game field
+- file to edit: `two_d_maps.py`
+  - location: `/path/to/site-packages/pettingzoo/sisl/pursuit/utils/two_d_maps.py`
+
+### Changes to be made
+- to remove obstacles (the building in the middle of the map)
+  - comment all lines in `retangle_map()` except `rmap = np.zero(...)` in `two_d_maps.py`
+    
+
+## Edit game rule
+- file to edit: `pursuit_base.py`
+  - location: `/path/to/site-packages/pettingzoo/sisl/pursuit/pursuit_base.py`
 
 ### How to use
 - repace pursuit_base.py in library with pursuit_base_new.py
+  
 - pursuit_base_original.py is the original file in the library
 
 ### Changed
