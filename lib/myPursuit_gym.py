@@ -1,6 +1,9 @@
 """
 wrap the pursuit env to (hopefully) work with everything that work with gym
 i just lazily preprocess the in/output of step()
+
+env.spec is set to None
+the info returned to env is set to agent_1's info
 """
 
 from collections import defaultdict
@@ -100,6 +103,13 @@ class aec_to_parallel_wrapper(ParallelEnv):
     def unwrapped(self):
         return self.aec_env.unwrapped
 
+    @property
+    def spec(self):
+        warnings.warn(
+            "The pursuit environment in gym does not have a spec attribute."
+        )
+        return None
+
     def reset(self, seed=None, return_info=False, options=None):
         self.aec_env.reset(seed=seed, return_info=return_info, options=options)
         self.agents = self.aec_env.agents[:]
@@ -158,7 +168,8 @@ class aec_to_parallel_wrapper(ParallelEnv):
         rewards = np.array(list(rewards.values())).sum()
         terminations = any(terminations.values())
         truncations = any(truncations.values())
-        infos = np.array(list(infos.values()))
+        # assert all([info == list(infos.values())[0] for info in list(infos.values())]), f"{infos} are not all same"
+        infos = list(infos.values())[0]
         return observations, rewards, terminations, truncations, infos
 
     def render(self):
