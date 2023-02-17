@@ -28,6 +28,7 @@ AgentID = str
 ObsDict = Dict[AgentID, ObsType]
 ActionDict = Dict[AgentID, ActionType]
 
+
 # from utils.conversion.py
 def my_parallel_wrapper_fn(env_fn):
     def par_fn(**kwargs):
@@ -36,6 +37,7 @@ def my_parallel_wrapper_fn(env_fn):
         return env
 
     return par_fn
+
 
 # from utils.conversion.py
 class aec_to_parallel_wrapper(ParallelEnv):
@@ -64,6 +66,9 @@ class aec_to_parallel_wrapper(ParallelEnv):
         except AttributeError:
             pass
         self.reset()
+        self._action_space = batch_space(
+            self.aec_env.action_space("pursuer_0"), self.aec_env.num_agents
+        )
 
     @property
     def observation_spaces(self):
@@ -93,11 +98,14 @@ class aec_to_parallel_wrapper(ParallelEnv):
 
     @property
     def observation_space(self):
-        return batch_space(self.aec_env.observation_space('pursuer_0'), self.aec_env.num_agents)
+        return batch_space(
+            self.aec_env.observation_space("pursuer_0"), self.aec_env.num_agents
+        )
 
     @property
     def action_space(self):
-        return batch_space(self.aec_env.action_space('pursuer_0'), self.aec_env.num_agents)
+        return self._action_space
+        # return batch_space(self.aec_env.action_space('pursuer_0'), self.aec_env.num_agents)
 
     @property
     def unwrapped(self):
@@ -105,9 +113,7 @@ class aec_to_parallel_wrapper(ParallelEnv):
 
     @property
     def spec(self):
-        warnings.warn(
-            "The pursuit environment in gym does not have a spec attribute."
-        )
+        warnings.warn("The pursuit environment in gym does not have a spec attribute.")
         return None
 
     def reset(self, seed=None, return_info=False, options=None):
@@ -163,9 +169,8 @@ class aec_to_parallel_wrapper(ParallelEnv):
 
         self.agents = self.aec_env.agents
 
-
         observations = np.array(list(observations.values()))
-        rewards = np.array(list(rewards.values())).sum()
+        rewards = np.array(list(rewards.values()))
         terminations = any(terminations.values())
         truncations = any(truncations.values())
         # assert all([info == list(infos.values())[0] for info in list(infos.values())]), f"{infos} are not all same"
@@ -187,17 +192,21 @@ my_parallel_env = my_parallel_wrapper_fn(pursuit_v4.env)
 
 if __name__ == "__main__":
     import pygame
+
     clock = pygame.time.Clock()
 
     # env = gym.make("LunarLander-v2", render_mode="human")
-    env = my_parallel_env(shared_reward=False, n_evaders=3, n_pursuers=8, render_mode="human")
+    env = my_parallel_env(
+        shared_reward=False, n_evaders=3, n_pursuers=8, render_mode="human"
+    )
     observation = env.reset(seed=42)
 
-    for _ in range(1000):
+    for _ in range(10 * 5):
         clock.tick(10)
         action = env.action_space.sample()
+        print(action)
         observation, reward, terminated, truncated, info = env.step(action)
 
         if terminated or truncated:
-            observation= env.reset()
+            observation = env.reset()
     env.close()
