@@ -166,6 +166,7 @@ class myDQNPolicy(DQNPolicy):
         self.optim.zero_grad()
         weight = batch.pop("weight", 1.0)
         q = self(batch).logits
+        q = torch.squeeze(q)
         q = q[np.arange(len(q)), batch.act]
         returns = to_torch_as(batch.returns.flatten(), q)
         td_error = returns - q
@@ -181,7 +182,8 @@ class myDQNPolicy(DQNPolicy):
         loss.backward()
         self.optim.step()
         self._iter += 1
-        return {"loss": loss.item()}
+        return loss.item()
+        # return {"loss": loss.item()}
 
     def exploration_noise(
         self,
@@ -234,6 +236,7 @@ class myDQNPolicy(DQNPolicy):
         buffer_act = action(buffer.act)
         batch_act = action(batch.act)
 
+        loss = 0
         for i in range(num_agents):
             _buffer_batch = Batch(
                 obs=np.expand_dims(buffer.obs[:, i], axis=1),
@@ -243,7 +246,7 @@ class myDQNPolicy(DQNPolicy):
                 terminated=buffer.terminated,
                 truncated=buffer.truncated,
                 obs_next=np.expand_dims(buffer.obs_next[:, i], axis=1),
-                act=np.expand_dims(buffer_act[:, i], axis=1),
+                act=buffer_act[:, i]
             )
             _buffer = ReplayBuffer(size = buffer.maxsize, stack_num = buffer.options["stack_num"], ignore_obs_next=buffer.options["ignore_obs_next"], save_only_last_obs=buffer.options["save_only_last_obs"], sample_avail=buffer.options["sample_avail"])
             for b in _buffer_batch:
@@ -258,17 +261,14 @@ class myDQNPolicy(DQNPolicy):
                 truncated=batch.truncated,
                 done=batch.done,
                 obs_next=np.expand_dims(batch.obs_next[:, i], axis=1),
-                act=np.expand_dims(batch_act[:, i], axis=1),
+                act=batch_act[:, i]
             )
 
             _batch = self.process_fn(_batch, _buffer, indices)
-
-            import sys
-
-            sys.exit()
             _result = self.learn(_batch, **kwargs)
+            loss = loss + _result
             if self.lr_scheduler is not None:
                 self.lr_scheduler.step()
         self.post_process_fn(batch, buffer, indices)
         self.updating = False
-        return result
+        return {"loss": loss}
