@@ -3,7 +3,6 @@ import pygame
 
 class ManualPolicy:
     def __init__(self, env, agent_id: int = 0, show_obs: bool = False):
-
         self.env = env
         self.agent_id = agent_id
         self.agent = self.env.agents[self.agent_id]
@@ -13,7 +12,7 @@ class ManualPolicy:
 
         # action mappings for all agents are the same
         if True:
-            self.default_action = 4 # 0
+            self.default_action = 4  # 0
             self.action_mapping = dict()
             self.action_mapping[pygame.K_UP] = 3  # right
             self.action_mapping[pygame.K_DOWN] = 2  # down
@@ -64,7 +63,16 @@ if __name__ == "__main__":
     max_fps = 5
     game_time = 10
 
-    env = pursuit_v4.parallel_env(max_cycles=max_fps*game_time, render_mode='human', freeze_evaders=True, n_evaders=5, n_pursuers=3, shared_reward=False, n_catch=1, surround=False)
+    env = pursuit_v4.parallel_env(
+        max_cycles=max_fps * game_time,
+        render_mode="human",
+        freeze_evaders=True,
+        n_evaders=5,
+        n_pursuers=3,
+        shared_reward=False,
+        n_catch=1,
+        surround=False,
+    )
     obs = env.reset()
     rwd = {}
 
