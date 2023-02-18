@@ -1,5 +1,9 @@
 Customizing our game environment
 ===
+## Get my site package path
+```bash
+python -m site
+```
 ## Edit game field
 - file to edit: `two_d_maps.py`
   - location: `/path/to/site-packages/pettingzoo/sisl/pursuit/utils/two_d_maps.py`
@@ -56,3 +60,10 @@ Feature improved:
 - reward() calculate the tagging reward for each predator. An predator get tagging reward if there is a prey in its up/down/left/right
 - remove_agents() calculate which prey to be removed, and return array purs_sur which indicate which predator removed an agent
 
+## Troubleshoot
+- If you encounter error 
+  ```
+  "/path/to/site-package/tianshou/env/gym_wrappers", line 45, in __init__
+    assert isinstance(env.action_space, gym.spaces.MultiDiscrete)
+  ```
+  - solution: replace `import gym` to `import gymnasium as gym` in `/path/to/site-package/tianshou/env/gym_wrappers`
