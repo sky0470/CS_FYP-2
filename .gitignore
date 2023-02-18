@@ -9,6 +9,7 @@
 *.pickle
 
 log_file*
+log/
 
 wandb/
 runs/
