@@ -197,14 +197,12 @@ if __name__ == "__main__":
 
     # env = gym.make("LunarLander-v2", render_mode="human")
     env = my_parallel_env(
-        shared_reward=False, n_evaders=3, n_pursuers=8, render_mode="human"
-    )
-    observation = env.reset(seed=42)
+        shared_reward=False, n_evaders=3, n_pursuers=8, render_mode="human")
+    observation = env.reset()
 
     for _ in range(10 * 5):
         clock.tick(10)
         action = env.action_space.sample()
-        print(action)
         observation, reward, terminated, truncated, info = env.step(action)
 
         if terminated or truncated:
