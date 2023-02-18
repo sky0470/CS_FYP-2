@@ -32,10 +32,10 @@ ActionDict = Dict[AgentID, ActionType]
 
 
 # from utils.conversion.py
-def my_parallel_wrapper_fn(env_fn):
+def my_parallel_wrapper_fn(env_fn, seed=None):
     def par_fn(**kwargs):
         env = env_fn(**kwargs)
-        env = aec_to_parallel_wrapper(env, SEED)
+        env = aec_to_parallel_wrapper(env, seed)
         return env
 
     return par_fn
@@ -43,7 +43,7 @@ def my_parallel_wrapper_fn(env_fn):
 
 # from utils.conversion.py
 class aec_to_parallel_wrapper(ParallelEnv):
-    def __init__(self, aec_env, seed=SEED):
+    def __init__(self, aec_env, seed=None):
         assert aec_env.metadata.get("is_parallelizable", False), (
             "Converting from an AEC environment to a parallel environment "
             "with the to_parallel wrapper is not generally safe "
@@ -67,10 +67,10 @@ class aec_to_parallel_wrapper(ParallelEnv):
             self.state_space = self.aec_env.state_space
         except AttributeError:
             pass
-        self.seed = seed
-        self.reset(seed=SEED)
+        self._seed = seed
+        self.reset(seed=self._seed)
         self._action_space = batch_space(
-            self.aec_env.action_space("pursuer_0"), self.aec_env.num_agents, seed=self.seed
+            self.aec_env.action_space("pursuer_0"), self.aec_env.num_agents, seed=self._seed
         )
 
     @property
@@ -193,7 +193,7 @@ class aec_to_parallel_wrapper(ParallelEnv):
 
 
 # from sisl.pursuit.pursuit.py
-my_parallel_env = my_parallel_wrapper_fn(pursuit_v4.env)
+my_parallel_env = my_parallel_wrapper_fn(pursuit_v4.env, seed=SEED)
 
 if __name__ == "__main__":
     import pygame
