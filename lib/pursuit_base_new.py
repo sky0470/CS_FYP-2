@@ -315,12 +315,14 @@ class Pursuit:
     def draw_pursuers(self):
         for i in range(self.pursuer_layer.n_agents()):
             x, y = self.pursuer_layer.get_position(i)
+            # print(f"pursuer {i} pos=", self.pursuer_layer.get_position(i))
             center = (
                 int(self.pixel_scale * x + self.pixel_scale / 2),
                 int(self.pixel_scale * y + self.pixel_scale / 2),
             )
             col = (255, 0, 0)
             pygame.draw.circle(self.screen, col, center, int(self.pixel_scale / 3))
+        # print("-"*20)
 
     def draw_evaders(self):
         for i in range(self.evader_layer.n_agents()):
@@ -335,6 +337,7 @@ class Pursuit:
 
     def draw_agent_counts(self):
         font = pygame.font.SysFont("Comic Sans MS", self.pixel_scale * 2 // 3)
+        font_small = pygame.font.SysFont("Comic Sans MS", int(self.pixel_scale * 0.4))
 
         agent_positions = defaultdict(int)
         evader_positions = defaultdict(int)
@@ -343,9 +346,26 @@ class Pursuit:
             x, y = self.evader_layer.get_position(i)
             evader_positions[(x, y)] += 1
 
+            (pos_x, pos_y) = (
+                self.pixel_scale * x + self.pixel_scale // 2,
+                self.pixel_scale * y + self.pixel_scale // 2,
+            )
+            # evader id
+            text = font_small.render(f"E{i}", False, (255, 255, 255))
+            self.screen.blit(text, (pos_x - self.pixel_scale * 2 // 3, pos_y - self.pixel_scale * 2// 3))
+
         for i in range(self.pursuer_layer.n_agents()):
             x, y = self.pursuer_layer.get_position(i)
             agent_positions[(x, y)] += 1
+
+            (pos_x, pos_y) = (
+                self.pixel_scale * x + self.pixel_scale // 2,
+                self.pixel_scale * y + self.pixel_scale // 2,
+            )
+            # agent id
+            text = font_small.render(f"P{i}", False, (255, 255, 255))
+            self.screen.blit(text, (pos_x - self.pixel_scale * 2 // 3, pos_y - self.pixel_scale * 2 // 3))
+            
 
         for (x, y) in evader_positions:
             (pos_x, pos_y) = (

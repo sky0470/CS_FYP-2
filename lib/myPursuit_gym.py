@@ -17,6 +17,8 @@ from gymnasium.vector.utils import batch_space
 
 import numpy as np
 
+SEED = 42
+
 ActionType = Optional[int]
 AgentID = str
 ActionDict = Dict[AgentID, ActionType]
@@ -33,7 +35,7 @@ ActionDict = Dict[AgentID, ActionType]
 def my_parallel_wrapper_fn(env_fn):
     def par_fn(**kwargs):
         env = env_fn(**kwargs)
-        env = aec_to_parallel_wrapper(env)
+        env = aec_to_parallel_wrapper(env, SEED)
         return env
 
     return par_fn
@@ -41,7 +43,7 @@ def my_parallel_wrapper_fn(env_fn):
 
 # from utils.conversion.py
 class aec_to_parallel_wrapper(ParallelEnv):
-    def __init__(self, aec_env):
+    def __init__(self, aec_env, seed=SEED):
         assert aec_env.metadata.get("is_parallelizable", False), (
             "Converting from an AEC environment to a parallel environment "
             "with the to_parallel wrapper is not generally safe "
@@ -65,9 +67,10 @@ class aec_to_parallel_wrapper(ParallelEnv):
             self.state_space = self.aec_env.state_space
         except AttributeError:
             pass
-        self.reset()
+        self.seed = seed
+        self.reset(seed=SEED)
         self._action_space = batch_space(
-            self.aec_env.action_space("pursuer_0"), self.aec_env.num_agents
+            self.aec_env.action_space("pursuer_0"), self.aec_env.num_agents, seed=self.seed
         )
 
     @property
@@ -170,11 +173,13 @@ class aec_to_parallel_wrapper(ParallelEnv):
         self.agents = self.aec_env.agents
 
         observations = np.array(list(observations.values()))
-        rewards = np.array(list(rewards.values()))
+        # rewards = np.array(list(rewards.values())) # for CTDE
+        rewards = np.array(list(rewards.values())).sum() # for centralized
         terminations = any(terminations.values())
         truncations = any(truncations.values())
         # assert all([info == list(infos.values())[0] for info in list(infos.values())]), f"{infos} are not all same"
         infos = list(infos.values())[0]
+        
         return observations, rewards, terminations, truncations, infos
 
     def render(self):
@@ -198,7 +203,7 @@ if __name__ == "__main__":
     # env = gym.make("LunarLander-v2", render_mode="human")
     env = my_parallel_env(
         shared_reward=False, n_evaders=3, n_pursuers=8, render_mode="human")
-    observation = env.reset()
+    observation = env.reset(SEED)
 
     for _ in range(10 * 5):
         clock.tick(10)

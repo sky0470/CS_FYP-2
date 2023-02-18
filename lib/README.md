@@ -7,6 +7,30 @@ Customizing our game environment
 ### Changes to be made
 - to remove obstacles (the building in the middle of the map)
   - comment all lines in `retangle_map()` except `rmap = np.zero(...)` in `two_d_maps.py`
+
+## Set deterministic sampled random action 
+- file to edit: `spaces.py`
+  - location: `/path/to/site-packages/gymnasium/vector/utils/spaces.py`
+
+### Changes to be made
+- replace the `_batch_space_discrete(space, n=1)` to the following code snippet:
+```python
+def _batch_space_discrete(space, n=1, seed=None):
+  if space.start == 0:
+      return MultiDiscrete(
+          np.full((n,), space.n, dtype=space.dtype),
+          dtype=space.dtype,
+          seed=seed if seed is not None else deepcopy(space.np_random),
+      )
+  else:
+      return Box(
+          low=space.start,
+          high=space.start + space.n - 1,
+          shape=(n,),
+          dtype=space.dtype,
+          seed=deepcopy(space.np_random),
+      )
+```
     
 
 ## Edit game rule
@@ -23,6 +47,8 @@ I change the following behaviors: (see line with ###)
 - do not remove prey after it is caught
 - originally purs_sur is a bool array that indicate which predator captured prey, now it is a int array that shows how much reward it should get
 (I only changed stuff assuming surround=False)
+Feature improved: 
+- added name tag for agents
 
 ### Code explanation
 - petting zoo assume env is ACE (agent environment cycle) game, hence step() is called for 1 agent at atime. Game is changed to parallel with wrapper
