@@ -10,10 +10,12 @@ from collections import defaultdict
 import warnings
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar
 
-from pettingzoo.sisl import pursuit_v4
+# from pettingzoo.sisl import pursuit_v4
+from my_sisl import pursuit_v4 
 from pettingzoo.utils import agent_selector, wrappers
 from pettingzoo.utils.env import ParallelEnv
-from gymnasium.vector.utils import batch_space
+# from gymnasium.vector.utils import batch_space
+from my_gym_vector_utils.spaces import batch_space
 
 import numpy as np
 

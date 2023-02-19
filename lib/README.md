@@ -1,6 +1,14 @@
 Customizing our game environment
 ===
-## Get my site package path
+## Using our customized game environemnt (**recommended**)
+- you may import 
+  - `my_sisl` instead of `pettingzoo.sisl`
+  - `my_gym_vector_utils` instead of `gymnasium.vector.utils` 
+- or follow the below instruction to edit the library directly
+
+---
+## Editing the library directly (**not recommended**)
+### Get my site package path
 ```bash
 python -m site
 ```
