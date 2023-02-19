@@ -137,14 +137,16 @@ class myDQNPolicy(DQNPolicy):
         obs = batch[input]
         obs_next = obs.obs if hasattr(obs, "obs") else obs
 
+        training_num = obs.shape[0]
         num_agents = obs.shape[1]
+        num_actions = 5
 
-        # model in 4x4x3 outupt 5
-        # old method in 5x7x4x4x3 output logit 5x78125  act 5
-        # new method in 5x7x4x4x3 output logit 5x7x5  act 5
-        act_ = np.zeros(obs.shape[0], dtype=int)
-        bases = 5 ** (num_agents - 1)
-        logits_ = torch.empty([num_agents, obs.shape[0], 5])
+        # model input: 4x4x3 output: 5
+        # old method input: 5x7x4x4x3 (train_num x n_pursuer x **obs) output logit: 5x5^7 (train_num x 5 action ^ n_pursuer); act: 5 (train_num)
+        # new method input: 5x7x4x4x3 (train_num x n_pursuer x **obs) output logit: 5x7x5 (train_num x n_pursuer x 5 actions)); act: 5 (train_num)
+        act_ = np.zeros(training_num, dtype=int)
+        bases = num_actions ** (num_agents - 1)
+        logits_ = torch.empty([num_agents, training_num, num_actions])
         # logits = np.empty([obs.shape[0], num_agents, 5])
         for i in range(num_agents):
             logits, hidden = model(obs_next[:, i], state=state, info=batch.info)
@@ -154,7 +156,7 @@ class myDQNPolicy(DQNPolicy):
                 self.max_action_num = q.shape[1]
             act = to_numpy(q.max(dim=1)[1])
             act_ = act_ + bases * act
-            bases = bases // 5
+            bases = bases // num_actions
         logits_ = logits_.transpose(1, 0)
 
         # logit 5x78125, act 5,, hidden = None
@@ -222,11 +224,13 @@ class myDQNPolicy(DQNPolicy):
         batch, indices = buffer.sample(sample_size)
         self.updating = True
         num_agents = batch.obs.shape[1]
+        num_actions = 5
 
-        nvec = np.array([5] * num_agents)
+        nvec = np.array([num_actions] * num_agents)
         bases = np.ones_like(nvec)
         for i in range(1, len(bases)):
             bases[i] = bases[i - 1] * nvec[-i]
+
         def action(act: np.ndarray) -> np.ndarray:
             converted_act = []
             for b in np.flip(bases):
