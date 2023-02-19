@@ -175,8 +175,8 @@ class aec_to_parallel_wrapper(ParallelEnv):
         self.agents = self.aec_env.agents
 
         observations = np.array(list(observations.values()))
-        # rewards = np.array(list(rewards.values())) # for CTDE
-        rewards = np.array(list(rewards.values())).sum() # for centralized
+        rewards = np.array(list(rewards.values())) # for CTDE
+        # rewards = np.array(list(rewards.values())).sum() # for centralized
         terminations = any(terminations.values())
         truncations = any(truncations.values())
         # assert all([info == list(infos.values())[0] for info in list(infos.values())]), f"{infos} are not all same"

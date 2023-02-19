@@ -155,7 +155,7 @@ class myDQNPolicy(DQNPolicy):
             act = to_numpy(q.max(dim=1)[1])
             act_ = act_ + bases * act
             bases = bases // 5
-        logits_.transpose(1, 0)
+        logits_ = logits_.transpose(1, 0)
 
         # logit 5x78125, act 5,, hidden = None
         return Batch(logits=logits_, act=act_, state=None)
