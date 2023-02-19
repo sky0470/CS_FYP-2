@@ -226,14 +226,12 @@ class myDQNPolicy(DQNPolicy):
         num_agents = batch.obs.shape[1]
         num_actions = 5
 
-        nvec = np.array([num_actions] * num_agents)
-        bases = np.ones_like(nvec)
-        for i in range(1, len(bases)):
-            bases[i] = bases[i - 1] * nvec[-i]
+        bases = num_actions ** np.arange(num_agents - 1, -1, -1)
 
         def action(act: np.ndarray) -> np.ndarray:
+            # convert int to n-base representation
             converted_act = []
-            for b in np.flip(bases):
+            for b in bases:
                 converted_act.append(act // b)
                 act = act % b
             return np.array(converted_act, dtype=int).transpose()
