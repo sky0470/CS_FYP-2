@@ -22,6 +22,7 @@ import sys
 import datetime
 
 sys.path.append("..")
+sys.path.append("../lib")
 from lib.myPursuit_gym import my_parallel_env
 from lib.mydqn import myDQNPolicy
 
@@ -72,7 +73,7 @@ def test_dqn(args=get_args()):
     task_parameter["max_cycles"] = 50  # 500
     task_parameter["x_size"] = 8  # 16
     task_parameter["y_size"] = 8  # 16
-    task_parameter["obs_range"] = 4  # 7
+    task_parameter["obs_range"] = 5  # 7, should be odd
     args.training_num = 5  # 10
     args.test_num = 50  # 100
     args.hidden_sizes = [64, 64]  # [128, 128, 128, 128]
