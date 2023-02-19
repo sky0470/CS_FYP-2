@@ -582,7 +582,7 @@ class Pursuit:
                     removed_evade.append(ai - rems)
                     self.evaders_gone[i] = False ### True
                     rems += 1
-                    rwd = self.model_state[1,x,y] if self.model_state[1,x,y] <=2 else 4-self.model_state[1,x,y] ###
+                    rwd = self.model_state[1,x,y] # if self.model_state[1,x,y] <=2 else 4-self.model_state[1,x,y] ###
                     for j in range(self.n_pursuers):
                         xpp, ypp = self.pursuer_layer.get_position(j)
                         if xpp == x and ypp == y:
