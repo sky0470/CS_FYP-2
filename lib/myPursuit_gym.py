@@ -122,7 +122,6 @@ class aec_to_parallel_wrapper(ParallelEnv):
         return None
 
     def reset(self, seed=None, return_info=False, options=None):
-        print(f'reset with seed {seed}')
         self.aec_env.reset(seed=seed, return_info=return_info, options=options)
         self.agents = self.aec_env.agents[:]
         observations = {
