@@ -19,6 +19,7 @@ from tianshou.utils import TensorboardLogger
 from tianshou.utils.net.common import Net
 
 import sys
+import datetime
 
 sys.path.append("..")
 from lib.myPursuit_gym import my_parallel_env
@@ -141,8 +142,9 @@ def test_dqn(args=get_args()):
     test_collector = Collector(policy, test_envs, exploration_noise=True)
     # policy.set_eps(1)
     train_collector.collect(n_step=args.batch_size * args.training_num)
+    train_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     # log
-    log_path = os.path.join(args.logdir, args.task, "dqn")
+    log_path = os.path.join(args.logdir, args.task, "dqn_ctde", train_datetime)
     writer = SummaryWriter(log_path)
     logger = TensorboardLogger(writer)
 
