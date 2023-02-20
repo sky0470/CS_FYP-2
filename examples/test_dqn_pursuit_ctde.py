@@ -105,14 +105,14 @@ def test_dqn(args=get_args()):
     # you can also use tianshou.env.SubprocVectorEnv
     train_envs = DummyVectorEnv(
         [
-            lambda: MultiDiscreteToDiscrete(my_parallel_env_message(**task_parameter))
+            lambda: env
             for _ in range(args.training_num)
         ]
     )
     # test_envs = gym.make(args.task)
     test_envs = DummyVectorEnv(
         [
-            lambda: MultiDiscreteToDiscrete(my_parallel_env_message(**task_parameter))
+            lambda: env
             for _ in range(args.test_num)
         ]
     )
