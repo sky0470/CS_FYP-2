@@ -1,0 +1,21 @@
+task_parameter = {
+    "shared_reward": False,
+    "freeze_evaders": True,
+    "surround": False,
+    "max_cycles": 100,
+}
+args.step_per_epoch = 2000  # 10000
+args.seed = 128
+
+{'best_result': '2157.58 ± 1070.74',
+ 'best_reward': 2157.5822890625004,
+ 'duration': '30453.47s',
+ 'test_episode': 2100,
+ 'test_speed': '143.28 step/s',
+ 'test_step': 210000,
+ 'test_time': '1465.69s',
+ 'train_episode': 400,
+ 'train_speed': '1.38 step/s',
+ 'train_step': 40000,
+ 'train_time/collector': '295.87s',
+ 'train_time/model': '28691.90s'}

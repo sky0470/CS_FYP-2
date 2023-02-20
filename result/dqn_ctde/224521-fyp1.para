@@ -1,0 +1,11 @@
+task_parameter = {
+    "shared_reward": False,
+    "freeze_evaders": True,
+    "surround": False,
+    "max_cycles": 100,
+}
+
+args.render = 0.05
+args.seed = 4243
+args.step_per_epoch = 2000
+
