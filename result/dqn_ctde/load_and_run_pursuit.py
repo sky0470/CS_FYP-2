@@ -71,7 +71,7 @@ def test_dqn(args=get_args()):
         "surround": False,
         "max_cycles" : 50,  # 500
 
-        # "n_evaders": 5,
+        "n_evaders": 15,
         #"n_pursuers": 7,
         #"x_size" : 8,  # 16
         #"y_size" : 8,  # 16
