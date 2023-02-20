@@ -75,10 +75,10 @@ def test_dqn(args=get_args()):
     args.render = 0.05
     args.step_per_epoch = 1000
     if args.seed is None:
-        args.seed = int(np.randome.rand() * 100000)
+        args.seed = int(np.random.rand() * 100000)
 
     train_very_fast = False
-    if (train_very_fast):
+    if train_very_fast:
         # Set the following parameters so that the program run very fast but train nothing
         task_parameter["max_cycles"] = 50  # 500
         task_parameter["x_size"] = 8  # 16
@@ -87,11 +87,13 @@ def test_dqn(args=get_args()):
         args.training_num = 5  # 10
         args.test_num = 50  # 100
         args.hidden_sizes = [64, 64]  # [128, 128, 128, 128]
-        args.epoch = 2 # 10  # 20
-        args.step_per_epoch = 10 # 500  # 10000
+        args.epoch = 2  # 10  # 20
+        args.step_per_epoch = 10  # 500  # 10000
         args.render = 0.05
 
-    env = MultiDiscreteToDiscrete(my_parallel_env_message(**task_parameter))  # showcase env
+    env = MultiDiscreteToDiscrete(
+        my_parallel_env_message(**task_parameter)
+    )  # showcase env
     args.state_shape = env.observation_space.shape or env.observation_space.n
     # args.action_shape = env.action_space.shape or env.action_space.n
     args.state_shape = args.state_shape[1:]
@@ -103,19 +105,9 @@ def test_dqn(args=get_args()):
         )
     # train_envs = gym.make(args.task)
     # you can also use tianshou.env.SubprocVectorEnv
-    train_envs = DummyVectorEnv(
-        [
-            lambda: env
-            for _ in range(args.training_num)
-        ]
-    )
+    train_envs = DummyVectorEnv([lambda: env for _ in range(args.training_num)])
     # test_envs = gym.make(args.task)
-    test_envs = DummyVectorEnv(
-        [
-            lambda: env
-            for _ in range(args.test_num)
-        ]
-    )
+    test_envs = DummyVectorEnv([lambda: env for _ in range(args.test_num)])
     # seed
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)

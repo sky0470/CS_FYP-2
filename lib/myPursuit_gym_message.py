@@ -49,16 +49,18 @@ def my_parallel_wrapper_fn_message(env_fn, seed=None):
 # from utils.conversion.py
 class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
     def __init__(self, aec_env, seed=None):
+        aec_env.reset()
+        self.observation_space_ = batch_space(
+            batch_space(
+                aec_env.unwrapped.observation_space_all("pursuer_0"), aec_env.num_agents
+            ),
+            aec_env.num_agents,
+        )
         super().__init__(aec_env, seed)
 
     @property
     def observation_space(self):
-        return batch_space(
-            batch_space(
-                self.aec_env.unwrapped.observation_space_all("pursuer_0"), self.aec_env.num_agents
-            ),
-            self.aec_env.num_agents,
-        )
+        return self.observation_space_
 
     def reset(self, seed=None, return_info=False, options=None):
         self.aec_env.reset(seed=seed, return_info=return_info, options=options)
@@ -70,7 +72,7 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
         }
         observations = np.tile(
             np.array(list(observations.values())),
-            (self.aec_env.num_agents,) + (1,) * (len(self.observation_space.shape)-1),
+            (self.aec_env.num_agents,) + (1,) * (len(self.observation_space.shape) - 1),
         )
 
         if not return_info:
@@ -106,7 +108,8 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
         truncations = dict(**self.aec_env.truncations)
         infos = dict(**self.aec_env.infos)
         observations = {
-            agent: self.aec_env.unwrapped.observe_all(agent) for agent in self.aec_env.agents
+            agent: self.aec_env.unwrapped.observe_all(agent)
+            for agent in self.aec_env.agents
         }
         while self.aec_env.agents and (
             self.aec_env.terminations[self.aec_env.agent_selection]
@@ -119,7 +122,8 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
         observations = np.tile(
             np.array(list(observations.values())),
             # (self.aec_env.num_agents,) + (1,) * (len(self.observation_space.shape)-1),
-            (7,) + (1,) * (len(self.observation_space.shape)-1),
+            (self.observation_space.shape[0],)
+            + (1,) * (len(self.observation_space.shape) - 1),
         )
         rewards = np.array(list(rewards.values()))  # for CTDE
         # rewards = np.array(list(rewards.values())).sum() # for centralized
@@ -127,11 +131,6 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
         truncations = any(truncations.values())
         # assert all([info == list(infos.values())[0] for info in list(infos.values())]), f"{infos} are not all same"
         infos = list(infos.values())[0]
-        # if (terminations or truncations):
-            # print(f'observation in {terminations} {truncations}')
-            # print(observations.shape)
-            # import sys
-            # sys.exit()
 
         return observations, rewards, terminations, truncations, infos
 
