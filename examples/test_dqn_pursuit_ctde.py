@@ -97,7 +97,7 @@ def test_dqn(args=get_args()):
     args.state_shape = args.state_shape[1:]
     args.action_shape = 5
     if args.reward_threshold is None:
-        default_reward_threshold = {"pursuit_v4": 195}
+        default_reward_threshold = {"pursuit_v4": 1000}
         args.reward_threshold = default_reward_threshold.get(
             args.task  # , env.spec.reward_threshold
         )
@@ -157,6 +157,9 @@ def test_dqn(args=get_args()):
     # log
     log_path = os.path.join(args.logdir, args.task, "dqn_ctde", train_datetime)
     writer = SummaryWriter(log_path)
+    writer.add_text("args", str(args))
+    writer.add_text("env", str(task_parameter))
+    writer.add_text("date_time", train_datetime)
     logger = TensorboardLogger(writer)
 
     def save_best_fn(policy):
