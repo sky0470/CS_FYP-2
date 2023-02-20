@@ -10,6 +10,8 @@ from collections import defaultdict
 import warnings
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar
 
+from tianshou.env import MultiDiscreteToDiscrete
+
 # from pettingzoo.sisl import pursuit_v4
 from my_sisl import pursuit_v4 
 from pettingzoo.utils import agent_selector, wrappers
@@ -38,6 +40,7 @@ def my_parallel_wrapper_fn(env_fn, seed=None):
     def par_fn(**kwargs):
         env = env_fn(**kwargs)
         env = aec_to_parallel_wrapper(env, seed)
+        env = MultiDiscreteToDiscrete(env)
         return env
 
     return par_fn

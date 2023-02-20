@@ -91,10 +91,10 @@ def test_dqn(args=get_args()):
         args.step_per_epoch = 10  # 500  # 10000
         args.render = 0.05
 
-    env = MultiDiscreteToDiscrete(
-        my_parallel_env_message(**task_parameter)
-    )  # showcase env
-    args.state_shape = env.observation_space.shape or env.observation_space.n
+    env = my_parallel_env_message
+
+    env_ = env(**task_parameter)
+    args.state_shape = env_.observation_space.shape or env_.observation_space.n
     # args.action_shape = env.action_space.shape or env.action_space.n
     args.state_shape = args.state_shape[1:]
     args.action_shape = 5
@@ -105,9 +105,13 @@ def test_dqn(args=get_args()):
         )
     # train_envs = gym.make(args.task)
     # you can also use tianshou.env.SubprocVectorEnv
-    train_envs = DummyVectorEnv([lambda: env for _ in range(args.training_num)])
+    train_envs = DummyVectorEnv(
+        [lambda: env(**task_parameter) for _ in range(args.training_num)]
+    )
     # test_envs = gym.make(args.task)
-    test_envs = DummyVectorEnv([lambda: env for _ in range(args.test_num)])
+    test_envs = DummyVectorEnv(
+        [lambda: env(**task_parameter) for _ in range(args.test_num)]
+    )
     # seed
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -199,7 +203,7 @@ def test_dqn(args=get_args()):
         env = DummyVectorEnv(
             [
                 lambda: MultiDiscreteToDiscrete(
-                    my_parallel_env_message(render_mode="human", **task_parameter)
+                    env(render_mode="human", **task_parameter)
                 )
             ]
         )

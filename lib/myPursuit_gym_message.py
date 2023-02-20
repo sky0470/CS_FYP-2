@@ -14,6 +14,7 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar
 from my_sisl import pursuit_v4
 from pettingzoo.utils import agent_selector, wrappers
 from pettingzoo.utils.env import ParallelEnv
+from tianshou.env import MultiDiscreteToDiscrete
 
 # from gymnasium.vector.utils import batch_space
 from my_gym_vector_utils.spaces import batch_space
@@ -41,6 +42,7 @@ def my_parallel_wrapper_fn_message(env_fn, seed=None):
     def par_fn(**kwargs):
         env = env_fn(**kwargs)
         env = aec_to_parallel_wrapper_message(env, seed)
+        env = MultiDiscreteToDiscrete(env)
         return env
 
     return par_fn
