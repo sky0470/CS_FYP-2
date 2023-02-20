@@ -34,7 +34,7 @@ def get_args():
     parser.add_argument("--path", type=str, default=None)
     parser.add_argument("--task", type=str, default="pursuit_v4")
     parser.add_argument("--reward-threshold", type=float, default=None)
-    parser.add_argument("--seed", type=int, default=1626)
+    parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--eps-test", type=float, default=0.05)
     parser.add_argument("--eps-train", type=float, default=0.1)
     parser.add_argument("--buffer-size", type=int, default=20000)
@@ -69,9 +69,9 @@ def test_dqn(args=get_args()):
         "shared_reward": False,
         "freeze_evaders": True,
         "surround": False,
-        "max_cycles" : 100,  # 500
+        "max_cycles" : 50,  # 500
 
-        #"n_evaders": 3,
+        # "n_evaders": 5,
         #"n_pursuers": 7,
         #"x_size" : 8,  # 16
         #"y_size" : 8,  # 16
@@ -80,7 +80,13 @@ def test_dqn(args=get_args()):
 
     args.render = 0.01
 
-    # The following parameters are changed so the program run very fast and train nothing
+    # seed
+    if args.seed is None:
+        args.seed = int(np.random.rand()*10000)
+        print(f'Seed is not given in arguments')
+    print(f'Seed is {args.seed}')
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
 
     env = MultiDiscreteToDiscrete(my_parallel_env(**task_parameter))  # showcase env
     args.state_shape = env.observation_space.shape or env.observation_space.n
@@ -93,10 +99,6 @@ def test_dqn(args=get_args()):
             args.task  # , env.spec.reward_threshold
         )
 
-    # seed
-    print(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
     # Q_param = V_param = {"hidden_sizes": [128]}
     # model
     net = Net(
@@ -121,10 +123,11 @@ def test_dqn(args=get_args()):
         env = DummyVectorEnv(
             [
                 lambda: MultiDiscreteToDiscrete(
-                    my_parallel_env(render_mode="human", **task_parameter)
+                    my_parallel_env(render_mode="human", **task_parameter),
                 )
             ]
         )
+        env.seed(args.seed)
 
         policy.eval()
         policy.set_eps(args.eps_test)
