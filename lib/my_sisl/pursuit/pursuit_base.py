@@ -134,10 +134,17 @@ class Pursuit:
             shape=(self.obs_range, self.obs_range, 3),
             dtype=np.float32,
         )
+        obs_space_all = spaces.Box(
+            low=0,
+            high=max_agents_overlap,
+            shape=(self.x_size, self.y_size, 3),
+            dtype=np.float32,
+        )
         act_space = spaces.Discrete(n_act_purs)
         self.action_space = [act_space for _ in range(self.n_pursuers)]
 
         self.observation_space = [obs_space for _ in range(self.n_pursuers)]
+        self.observation_space_all = [obs_space_all for _ in range(self.n_pursuers)]
         self.act_dims = [n_act_purs for i in range(self.n_pursuers)]
 
         self.evaders_gone = np.array([False for i in range(self.n_evaders)])
@@ -158,6 +165,9 @@ class Pursuit:
 
     def observation_space(self, agent):
         return self.observation_spaces[agent]
+
+    def observation_space_all(self, agent):
+        return self.observation_spaces_all[agent]
 
     def action_space(self, agent):
         return self.action_spaces[agent]
@@ -507,6 +517,17 @@ class Pursuit:
                 return self.collect_obs_by_idx(agent_layer, i)
         assert False, "bad index"
 
+    def safely_observe_all(self, i):
+        agent_layer = self.pursuer_layer
+        obs = self.collect_obs_all(agent_layer, i)
+        return obs
+
+    def collect_obs_all(self, agent_layer, i):
+        for j in range(self.n_agents()):
+            if i == j:
+                return self.collect_obs_by_idx_all(agent_layer, i)
+        assert False, "bad index"
+
     def collect_obs_by_idx(self, agent_layer, agent_idx):
         # returns a flattened array of all the observations
         obs = np.zeros((3, self.obs_range, self.obs_range), dtype=np.float32)
@@ -516,6 +537,17 @@ class Pursuit:
         xlo, xhi, ylo, yhi, xolo, xohi, yolo, yohi = self.obs_clip(xp, yp)
 
         obs[0:3, xolo:xohi, yolo:yohi] = np.abs(self.model_state[0:3, xlo:xhi, ylo:yhi])
+        return obs
+
+    def collect_obs_by_idx_all(self, agent_layer, agent_idx):
+        # returns a flattened array of all the observations
+        obs = np.zeros((3, self.x_size, self.y_size), dtype=np.float32)
+        # obs[0].fill(1.0)  # border walls set to -0.1?
+        xp, yp = agent_layer.get_position(agent_idx)
+
+        xlo, xhi, ylo, yhi, xolo, xohi, yolo, yohi = self.obs_clip(xp, yp)
+
+        obs[0:3, xlo:xhi, ylo:yhi] = np.abs(self.model_state[0:3, xlo:xhi, ylo:yhi])
         return obs
 
     def obs_clip(self, x, y):

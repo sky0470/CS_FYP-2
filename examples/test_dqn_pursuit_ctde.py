@@ -23,7 +23,9 @@ import datetime
 
 sys.path.append("..")
 sys.path.append("../lib")
+# from lib.myPursuit_gym import my_parallel_env
 from lib.myPursuit_gym import my_parallel_env
+from lib.myPursuit_gym_message import my_parallel_env_message
 from lib.mydqn import myDQNPolicy
 
 
@@ -31,7 +33,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--task", type=str, default="pursuit_v4")
     parser.add_argument("--reward-threshold", type=float, default=None)
-    parser.add_argument("--seed", type=int, default=1626)
+    parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--eps-test", type=float, default=0.05)
     parser.add_argument("--eps-train", type=float, default=0.1)
     parser.add_argument("--buffer-size", type=int, default=20000)
@@ -64,24 +66,32 @@ def get_args():
 def test_dqn(args=get_args()):
     task_parameter = {
         "shared_reward": False,
-        "n_evaders": 3,
+        "surround": False,
         "freeze_evaders": True,
-        "n_pursuers": 7,
+        "max_cycles": 50,
+        "n_evaders": 15,
+        # "n_pursuers": 7,
     }
-
-    # The following parameters are changed so the program run very fast and train nothing
-    task_parameter["max_cycles"] = 50  # 500
-    task_parameter["x_size"] = 8  # 16
-    task_parameter["y_size"] = 8  # 16
-    task_parameter["obs_range"] = 5  # 7, should be odd
-    args.training_num = 5  # 10
-    args.test_num = 50  # 100
-    args.hidden_sizes = [64, 64]  # [128, 128, 128, 128]
-    args.epoch = 10  # 20
-    args.step_per_epoch = 500  # 10000
     args.render = 0.05
+    args.step_per_epoch = 1000
+    if args.seed is None:
+        args.seed = int(np.randome.rand() * 100000)
 
-    env = MultiDiscreteToDiscrete(my_parallel_env(**task_parameter))  # showcase env
+    train_very_fast = False
+    if (train_very_fast):
+        # Set the following parameters so that the program run very fast but train nothing
+        task_parameter["max_cycles"] = 50  # 500
+        task_parameter["x_size"] = 8  # 16
+        task_parameter["y_size"] = 8  # 16
+        task_parameter["obs_range"] = 5  # 7, should be odd
+        args.training_num = 5  # 10
+        args.test_num = 50  # 100
+        args.hidden_sizes = [64, 64]  # [128, 128, 128, 128]
+        args.epoch = 2 # 10  # 20
+        args.step_per_epoch = 10 # 500  # 10000
+        args.render = 0.05
+
+    env = MultiDiscreteToDiscrete(my_parallel_env_message(**task_parameter))  # showcase env
     args.state_shape = env.observation_space.shape or env.observation_space.n
     # args.action_shape = env.action_space.shape or env.action_space.n
     args.state_shape = args.state_shape[1:]
@@ -95,14 +105,14 @@ def test_dqn(args=get_args()):
     # you can also use tianshou.env.SubprocVectorEnv
     train_envs = DummyVectorEnv(
         [
-            lambda: MultiDiscreteToDiscrete(my_parallel_env(**task_parameter))
+            lambda: MultiDiscreteToDiscrete(my_parallel_env_message(**task_parameter))
             for _ in range(args.training_num)
         ]
     )
     # test_envs = gym.make(args.task)
     test_envs = DummyVectorEnv(
         [
-            lambda: MultiDiscreteToDiscrete(my_parallel_env(**task_parameter))
+            lambda: MultiDiscreteToDiscrete(my_parallel_env_message(**task_parameter))
             for _ in range(args.test_num)
         ]
     )
@@ -194,7 +204,7 @@ def test_dqn(args=get_args()):
         env = DummyVectorEnv(
             [
                 lambda: MultiDiscreteToDiscrete(
-                    my_parallel_env(render_mode="human", **task_parameter)
+                    my_parallel_env_message(render_mode="human", **task_parameter)
                 )
             ]
         )
