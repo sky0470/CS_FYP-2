@@ -23,9 +23,8 @@ import datetime
 
 sys.path.append("..")
 sys.path.append("../lib")
-# from lib.myPursuit_gym import my_parallel_env
-from lib.myPursuit_gym import my_parallel_env
-from lib.myPursuit_gym_message import my_parallel_env_message
+from lib.myPursuit_gym import my_parallel_env as my_env
+# from lib.myPursuit_gym_message import my_parallel_env_message as my_env
 from lib.mydqn import myDQNPolicy
 
 
@@ -91,10 +90,8 @@ def test_dqn(args=get_args()):
         args.step_per_epoch = 10  # 500  # 10000
         args.render = 0.05
 
-    env = my_parallel_env
-
-    env_ = env(**task_parameter)
-    args.state_shape = env_.observation_space.shape or env_.observation_space.n
+    env = my_env(**task_parameter)
+    args.state_shape = env.observation_space.shape or env.observation_space.n
     # args.action_shape = env.action_space.shape or env.action_space.n
     args.state_shape = args.state_shape[1:]
     args.action_shape = 5
@@ -106,11 +103,11 @@ def test_dqn(args=get_args()):
     # train_envs = gym.make(args.task)
     # you can also use tianshou.env.SubprocVectorEnv
     train_envs = DummyVectorEnv(
-        [lambda: env(**task_parameter) for _ in range(args.training_num)]
+        [lambda: my_env(**task_parameter) for _ in range(args.training_num)]
     )
     # test_envs = gym.make(args.task)
     test_envs = DummyVectorEnv(
-        [lambda: env(**task_parameter) for _ in range(args.test_num)]
+        [lambda: my_env(**task_parameter) for _ in range(args.test_num)]
     )
     # seed
     np.random.seed(args.seed)
@@ -203,15 +200,15 @@ def test_dqn(args=get_args()):
         pprint.pprint(result)
         # Let's watch its performance!
 
-        env = DummyVectorEnv(
+        envs = DummyVectorEnv(
             [
-                lambda: env(**task_parameter)
+                lambda: my_env(**task_parameter)
             ]
         )
 
         policy.eval()
         policy.set_eps(args.eps_test)
-        collector = Collector(policy, env)
+        collector = Collector(policy, envs)
         result = collector.collect(n_episode=1, render=None)
         rews, lens = result["rews"], result["lens"]
         print(f"Final reward: {rews.mean()}, length: {lens.mean()}")
