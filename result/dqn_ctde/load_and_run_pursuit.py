@@ -71,7 +71,7 @@ def test_dqn(args=get_args()):
         "surround": False,
         "max_cycles" : 50,  # 500
 
-        "n_evaders": 15,
+        "n_evaders": 8,
         #"n_pursuers": 7,
         #"x_size" : 8,  # 16
         #"y_size" : 8,  # 16
@@ -88,8 +88,9 @@ def test_dqn(args=get_args()):
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
-    env = MultiDiscreteToDiscrete(my_parallel_env(**task_parameter))  # showcase env
-    args.state_shape = env.observation_space.shape or env.observation_space.n
+    env = my_parallel_env
+    env_ = my_parallel_env(**task_parameter)
+    args.state_shape = env_.observation_space.shape or env_.observation_space.n
     # args.action_shape = env.action_space.shape or env.action_space.n
     args.state_shape = args.state_shape[1:]
     args.action_shape = 5
@@ -122,9 +123,7 @@ def test_dqn(args=get_args()):
 
         env = DummyVectorEnv(
             [
-                lambda: MultiDiscreteToDiscrete(
-                    my_parallel_env(render_mode="human", **task_parameter),
-                )
+                lambda: env(render_mode="human", **task_parameter),
             ]
         )
         env.seed(args.seed)
