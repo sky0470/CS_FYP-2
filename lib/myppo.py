@@ -8,20 +8,20 @@ from tianshou.data import Batch, ReplayBuffer, to_numpy, to_torch_as, to_torch
 from tianshou.policy import A2CPolicy, PPOPolicy
 from tianshou.utils.net.common import ActorCritic
 
+
 class myPPOPolicy(PPOPolicy):
     def __init__(
         self,
-        num_actions: int = 5,
         num_agents: int = None,
         *args,
         **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
-        self.num_actions = num_actions
+        self.num_actions = 5
         self.num_agents = num_agents
-        self.bases = num_actions ** (num_agents - 1)
-        self.bases_arr = num_actions ** np.arange(num_agents - 1, -1, -1)
-
+        self.bases = self.num_actions ** (num_agents - 1)
+        self.bases_arr = self.num_actions ** np.arange(num_agents - 1, -1, -1)
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # modified
     def learn(  # type: ignore
@@ -36,16 +36,24 @@ class myPPOPolicy(PPOPolicy):
                 dist = self(minibatch).dist
                 if self._norm_adv:
                     mean, std = minibatch.adv.mean(), minibatch.adv.std()
-                    minibatch.adv = (minibatch.adv -
-                                     mean) / (std + self._eps)  # per-batch norm
+                    minibatch.adv = (minibatch.adv - mean) / (
+                        std + self._eps
+                    )  # per-batch norm
 
-                ratio = (dist.log_prob(torch.unsqueeze(minibatch.act,1)) - # modified
-                         minibatch.logp_old).exp().float()
+                ratio = (
+                    (
+                        dist.log_prob(torch.unsqueeze(minibatch.act, 1))
+                        - minibatch.logp_old  # modified
+                    )
+                    .exp()
+                    .float()
+                )
                 ratio = ratio.reshape(ratio.size(0), -1).transpose(0, 1)
                 surr1 = ratio * minibatch.adv
-                surr2 = ratio.clamp(
-                    1.0 - self._eps_clip, 1.0 + self._eps_clip
-                ) * minibatch.adv
+                surr2 = (
+                    ratio.clamp(1.0 - self._eps_clip, 1.0 + self._eps_clip)
+                    * minibatch.adv
+                )
                 if self._dual_clip:
                     clip1 = torch.min(surr1, surr2)
                     clip2 = torch.max(clip1, self._dual_clip * minibatch.adv)
@@ -55,8 +63,9 @@ class myPPOPolicy(PPOPolicy):
                 # calculate loss for critic
                 value = self.critic(minibatch.obs).flatten()
                 if self._value_clip:
-                    v_clip = minibatch.v_s + \
-                        (value - minibatch.v_s).clamp(-self._eps_clip, self._eps_clip)
+                    v_clip = minibatch.v_s + (value - minibatch.v_s).clamp(
+                        -self._eps_clip, self._eps_clip
+                    )
                     vf1 = (minibatch.returns - value).pow(2)
                     vf2 = (minibatch.returns - v_clip).pow(2)
                     vf_loss = torch.max(vf1, vf2).mean()
@@ -64,8 +73,9 @@ class myPPOPolicy(PPOPolicy):
                     vf_loss = (minibatch.returns - value).pow(2).mean()
                 # calculate regularization and overall loss
                 ent_loss = dist.entropy().mean()
-                loss = clip_loss + self._weight_vf * vf_loss \
-                    - self._weight_ent * ent_loss
+                loss = (
+                    clip_loss + self._weight_vf * vf_loss - self._weight_ent * ent_loss
+                )
                 self.optim.zero_grad()
                 loss.backward()
                 if self._grad_norm:  # clip large gradient
@@ -85,10 +95,10 @@ class myPPOPolicy(PPOPolicy):
             ent_losses,
         )
         # return {
-            # "loss": losses,
-            # "loss/clip": clip_losses,
-            # "loss/vf": vf_losses,
-            # "loss/ent": ent_losses,
+        # "loss": losses,
+        # "loss/clip": clip_losses,
+        # "loss/vf": vf_losses,
+        # "loss/ent": ent_losses,
         # }
 
     # forward from pg.py
@@ -124,10 +134,14 @@ class myPPOPolicy(PPOPolicy):
         bases = self.bases
 
         # set logit for each agent
-        logits = torch.empty([num_agents, training_num, num_actions])
+        logits = torch.empty(
+            [num_agents, training_num, num_actions], device=self.device
+        )
         for i in range(num_agents):
-            logits[i], hidden = self.actor(batch.obs[:, i], state=state, info=batch.info)
-        logits = logits.transpose(1,0)
+            logits[i], hidden = self.actor(
+                batch.obs[:, i], state=state, info=batch.info
+            )
+        logits = logits.transpose(1, 0)
 
         if isinstance(logits, tuple):
             dist = self.dist_fn(*logits)
@@ -149,8 +163,9 @@ class myPPOPolicy(PPOPolicy):
         return Batch(logits=logits, act=act_, state=None, dist=dist)
 
     # from base.py
-    def update(self, sample_size: int, buffer: Optional[ReplayBuffer],
-               **kwargs: Any) -> Dict[str, Any]:
+    def update(
+        self, sample_size: int, buffer: Optional[ReplayBuffer], **kwargs: Any
+    ) -> Dict[str, Any]:
         """Update the policy network and replay buffer.
 
         It includes 3 function steps: process_fn, learn, and post_process_fn. In
@@ -180,6 +195,7 @@ class myPPOPolicy(PPOPolicy):
                 converted_act.append(act // b)
                 act = act % b
             return np.array(converted_act, dtype=int).transpose()
+
         buffer_act = action(buffer.act)
         batch_act = action(batch.act)
 
@@ -187,31 +203,39 @@ class myPPOPolicy(PPOPolicy):
         for i in range(num_agents):
             _buffer_batch = Batch(
                 obs=np.expand_dims(buffer.obs[:, i], axis=1),
-                rew=buffer.rew[:,i], # np.expand_dims(buffer.rew[:, i], axis=1),
+                rew=buffer.rew[:, i],  # np.expand_dims(buffer.rew[:, i], axis=1),
                 info=buffer.info,
                 policy=buffer.policy,
                 terminated=buffer.terminated,
                 truncated=buffer.truncated,
                 obs_next=np.expand_dims(buffer.obs_next[:, i], axis=1),
-                act=buffer_act[:, i]
+                act=buffer_act[:, i],
             )
-            _buffer = ReplayBuffer(size = buffer.maxsize, stack_num = buffer.options["stack_num"], ignore_obs_next=buffer.options["ignore_obs_next"], save_only_last_obs=buffer.options["save_only_last_obs"], sample_avail=buffer.options["sample_avail"])
+            _buffer = ReplayBuffer(
+                size=buffer.maxsize,
+                stack_num=buffer.options["stack_num"],
+                ignore_obs_next=buffer.options["ignore_obs_next"],
+                save_only_last_obs=buffer.options["save_only_last_obs"],
+                sample_avail=buffer.options["sample_avail"],
+            )
             for b in _buffer_batch:
                 _buffer.add(b)
 
             _batch = Batch(
                 obs=np.expand_dims(batch.obs[:, i], axis=1),
-                rew=batch.rew[:,i], #np.expand_dims(batch.rew[:, i], axis=1),
+                rew=batch.rew[:, i],  # np.expand_dims(batch.rew[:, i], axis=1),
                 info=batch.info,
                 policy=batch.policy,
                 terminated=batch.terminated,
                 truncated=batch.truncated,
                 done=batch.done,
                 obs_next=np.expand_dims(batch.obs_next[:, i], axis=1),
-                act=batch_act[:, i]
+                act=batch_act[:, i],
             )
             _batch = self.process_fn(_batch, _buffer, indices)
-            (losses_, clip_losses_, vf_losses_, ent_losses_) = self.learn(_batch, **kwargs)
+            (losses_, clip_losses_, vf_losses_, ent_losses_) = self.learn(
+                _batch, **kwargs
+            )
             losses += losses_
             clip_losses += clip_losses_
             vf_losses += vf_losses_

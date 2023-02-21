@@ -2,7 +2,8 @@
 code that train pursuit with ppo
 tested with myPursuit and myPursuit_message for small parameters
 
-not yet test for reproducibility
+not yet test for reproducibility :(
+not yet test on machine :(
 parameters are set somewhat arbitrarly, should find a paper someday
 """
 import argparse
@@ -79,7 +80,7 @@ def test_ppo(args=get_args()):
         "n_pursuers": 8,
     }
     args.render = 0.05
-    args.step_per_epoch = 1000
+    args.step_per_epoch = 2000
     if args.seed is None:
         args.seed = int(np.random.rand() * 100000)
 
@@ -97,7 +98,7 @@ def test_ppo(args=get_args()):
         args.step_per_epoch = 10  # 500  # 10000
         args.render = 0.05
 
-    env = my_parallel_env_message
+    env = my_parallel_env
 
     env_ = env(**task_parameter)
     args.state_shape = env_.observation_space.shape or env_.observation_space.n
@@ -134,20 +135,20 @@ def test_ppo(args=get_args()):
     ).to(args.device)
     actor = Actor(net, args.action_shape, device=args.device)
     critic = Critic(net, device=args.device)
-    optim = torch.optim.Adam(
-        ActorCritic(actor, critic).parameters(), lr=args.lr
-    )
+    optim = torch.optim.Adam(ActorCritic(actor, critic).parameters(), lr=args.lr)
+
     def dist(p):
         return torch.distributions.Categorical(logits=p)
 
     policy = myPPOPolicy(
         task_parameter["n_pursuers"],
-        5,
         actor,
         critic,
         optim,
         dist,
-    )
+    ).to(
+        args.device
+    )  # not sure if need to() ot not
 
     # # buffer
     # if args.prioritized_replay:
@@ -206,17 +207,14 @@ def test_ppo(args=get_args()):
         pprint.pprint(result)
         # Let's watch its performance!
 
-        env = DummyVectorEnv(
-            [
-                lambda: env(**task_parameter)
-            ]
-        )
+        env = DummyVectorEnv([lambda: env(**task_parameter)])
 
         policy.eval()
         collector = Collector(policy, env)
         result = collector.collect(n_episode=1, render=None)
         rews, lens = result["rews"], result["lens"]
         print(f"Final reward: {rews.mean()}, length: {lens.mean()}")
+
 
 if __name__ == "__main__":
     test_ppo(get_args())
