@@ -91,7 +91,7 @@ def test_dqn(args=get_args()):
         args.step_per_epoch = 10  # 500  # 10000
         args.render = 0.05
 
-    env = my_parallel_env_message
+    env = my_parallel_env
 
     env_ = env(**task_parameter)
     args.state_shape = env_.observation_space.shape or env_.observation_space.n
@@ -152,6 +152,9 @@ def test_dqn(args=get_args()):
     train_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     # log
     log_path = os.path.join(args.logdir, args.task, "dqn_ctde", train_datetime)
+    print(train_datetime)
+    print(str(args))
+    print(str(task_parameter))
     writer = SummaryWriter(log_path)
     writer.add_text("args", str(args))
     writer.add_text("env", str(task_parameter))
@@ -202,16 +205,14 @@ def test_dqn(args=get_args()):
 
         env = DummyVectorEnv(
             [
-                lambda: MultiDiscreteToDiscrete(
-                    env(render_mode="human", **task_parameter)
-                )
+                lambda: env(**task_parameter)
             ]
         )
 
         policy.eval()
         policy.set_eps(args.eps_test)
         collector = Collector(policy, env)
-        result = collector.collect(n_episode=1, render=args.render)
+        result = collector.collect(n_episode=1, render=None)
         rews, lens = result["rews"], result["lens"]
         print(f"Final reward: {rews.mean()}, length: {lens.mean()}")
 
