@@ -16,6 +16,7 @@ class myPPOPolicy(PPOPolicy):
         *args,
         **kwargs: Any,
     ) -> None:
+        assert num_agents is not None
         super().__init__(*args, **kwargs)
         self.num_actions = 5
         self.num_agents = num_agents

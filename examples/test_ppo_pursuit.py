@@ -29,10 +29,9 @@ import datetime
 sys.path.append("..")
 sys.path.append("../lib")
 sys.path.append("../lib/policy_lib")
-# from lib.myPursuit_gym import my_parallel_env
-from lib.myPursuit_gym import my_parallel_env
 from lib.myppo import myPPOPolicy
-from lib.myPursuit_gym_message import my_parallel_env_message
+from lib.myPursuit_gym import my_parallel_env as my_env
+# from lib.myPursuit_gym_message import my_parallel_env_message as my_env
 
 
 def get_args():
@@ -84,7 +83,7 @@ def test_ppo(args=get_args()):
     if args.seed is None:
         args.seed = int(np.random.rand() * 100000)
 
-    train_very_fast = True
+    train_very_fast = False
     if train_very_fast:
         # Set the following parameters so that the program run very fast but train nothing
         task_parameter["max_cycles"] = 50  # 500
@@ -98,11 +97,10 @@ def test_ppo(args=get_args()):
         args.step_per_epoch = 10  # 500  # 10000
         args.render = 0.05
 
-    env = my_parallel_env
 
-    env_ = env(**task_parameter)
-    args.state_shape = env_.observation_space.shape or env_.observation_space.n
-    args.action_shape = env_.action_space.shape or env_.action_space.n
+    env = my_env(**task_parameter)
+    args.state_shape = env.observation_space.shape or env.observation_space.n
+    args.action_shape = env.action_space.shape or env.action_space.n
     args.state_shape = args.state_shape[1:]
     args.action_shape = 5
     if args.reward_threshold is None:
@@ -113,11 +111,11 @@ def test_ppo(args=get_args()):
     # train_envs = gym.make(args.task)
     # you can also use tianshou.env.SubprocVectorEnv
     train_envs = DummyVectorEnv(
-        [lambda: env(**task_parameter) for _ in range(args.training_num)]
+        [lambda: my_env(**task_parameter) for _ in range(args.training_num)]
     )
     # test_envs = gym.make(args.task)
     test_envs = DummyVectorEnv(
-        [lambda: env(**task_parameter) for _ in range(args.test_num)]
+        [lambda: my_env(**task_parameter) for _ in range(args.test_num)]
     )
     # seed
     np.random.seed(args.seed)
@@ -141,11 +139,11 @@ def test_ppo(args=get_args()):
         return torch.distributions.Categorical(logits=p)
 
     policy = myPPOPolicy(
-        task_parameter["n_pursuers"],
-        actor,
-        critic,
-        optim,
-        dist,
+        actor=actor,
+        critic=critic,
+        optim=optim,
+        dist_fn=dist,
+        num_agents=task_parameter["n_pursuers"],
     ).to(
         args.device
     )  # not sure if need to() ot not
@@ -169,7 +167,7 @@ def test_ppo(args=get_args()):
     # log
     log_path = os.path.join(args.logdir, args.task, "ppo", train_datetime)
     print(train_datetime)
-    print(str(env))
+    print(str(my_env))
     print(str(args))
     print(str(task_parameter))
     writer = SummaryWriter(log_path)
@@ -207,10 +205,10 @@ def test_ppo(args=get_args()):
         pprint.pprint(result)
         # Let's watch its performance!
 
-        env = DummyVectorEnv([lambda: env(**task_parameter)])
+        envs = DummyVectorEnv([lambda: my_env(**task_parameter)])
 
         policy.eval()
-        collector = Collector(policy, env)
+        collector = Collector(policy, envs)
         result = collector.collect(n_episode=1, render=None)
         rews, lens = result["rews"], result["lens"]
         print(f"Final reward: {rews.mean()}, length: {lens.mean()}")

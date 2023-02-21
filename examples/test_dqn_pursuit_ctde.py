@@ -150,11 +150,13 @@ def test_dqn(args=get_args()):
     # log
     log_path = os.path.join(args.logdir, args.task, "dqn_ctde", train_datetime)
     print(train_datetime)
+    print(str(my_env))
     print(str(args))
     print(str(task_parameter))
     writer = SummaryWriter(log_path)
     writer.add_text("args", str(args))
-    writer.add_text("env", str(task_parameter))
+    writer.add_text("env_name", str(my_env))
+    writer.add_text("env_para", str(task_parameter))
     writer.add_text("date_time", train_datetime)
     logger = TensorboardLogger(writer)
 
