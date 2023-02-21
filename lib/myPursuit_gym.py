@@ -124,6 +124,8 @@ class aec_to_parallel_wrapper(ParallelEnv):
         warnings.warn("The pursuit environment in gym does not have a spec attribute.")
         return None
 
+    def seed(self, seed):
+        self.reset(seed=seed)
     def reset(self, seed=None, return_info=False, options=None):
         self.aec_env.reset(seed=seed, return_info=return_info, options=options)
         self.agents = self.aec_env.agents[:]

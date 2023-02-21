@@ -16,7 +16,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from tianshou.data import Collector, PrioritizedVectorReplayBuffer, VectorReplayBuffer
-from tianshou.env import DummyVectorEnv, MultiDiscreteToDiscrete
+from tianshou.env import DummyVectorEnv, MultiDiscreteToDiscrete, SubprocVectorEnv
 from tianshou.trainer import onpolicy_trainer
 from tianshou.utils import TensorboardLogger
 from tianshou.utils.net.common import Net, ActorCritic
@@ -48,10 +48,10 @@ def get_args():
     parser.add_argument("--target-update-freq", type=int, default=320)
     parser.add_argument("--epoch", type=int, default=20)
     parser.add_argument("--step-per-epoch", type=int, default=10000)
-    parser.add_argument("--step-per-collect", type=int, default=10)
+    parser.add_argument("--step-per-collect", type=int, default=100)
     parser.add_argument("--repeat-per-collect", type=int, default=4)
     parser.add_argument("--update-per-step", type=float, default=0.1)
-    parser.add_argument("--batch-size", type=int, default=64)
+    parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument(
         "--hidden-sizes", type=int, nargs="*", default=[128, 128, 128, 128]
     )
@@ -110,11 +110,11 @@ def test_ppo(args=get_args()):
         )
     # train_envs = gym.make(args.task)
     # you can also use tianshou.env.SubprocVectorEnv
-    train_envs = DummyVectorEnv(
+    train_envs = SubprocVectorEnv(
         [lambda: my_env(**task_parameter) for _ in range(args.training_num)]
     )
     # test_envs = gym.make(args.task)
-    test_envs = DummyVectorEnv(
+    test_envs = SubprocVectorEnv(
         [lambda: my_env(**task_parameter) for _ in range(args.test_num)]
     )
     # seed
