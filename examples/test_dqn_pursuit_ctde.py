@@ -12,7 +12,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from tianshou.data import Collector, PrioritizedVectorReplayBuffer, VectorReplayBuffer
-from tianshou.env import DummyVectorEnv, MultiDiscreteToDiscrete
+from tianshou.env import DummyVectorEnv, MultiDiscreteToDiscrete, SubprocVectorEnv
 from tianshou.policy import DQNPolicy
 from tianshou.trainer import offpolicy_trainer
 from tianshou.utils import TensorboardLogger
@@ -68,11 +68,12 @@ def test_dqn(args=get_args()):
         "surround": False,
         "freeze_evaders": True,
         "max_cycles": 50,
-        "n_evaders": 15,
-        # "n_pursuers": 7,
+        "n_evaders": 8,
+        "n_pursuers": 8,
     }
     args.render = 0.05
-    args.step_per_epoch = 1000
+    args.step_per_epoch = 2000
+    args.epoch = 100
     if args.seed is None:
         args.seed = int(np.random.rand() * 100000)
 
@@ -96,17 +97,17 @@ def test_dqn(args=get_args()):
     args.state_shape = args.state_shape[1:]
     args.action_shape = 5
     if args.reward_threshold is None:
-        default_reward_threshold = {"pursuit_v4": 1000}
+        default_reward_threshold = {"pursuit_v4": 1500}
         args.reward_threshold = default_reward_threshold.get(
             args.task  # , env.spec.reward_threshold
         )
     # train_envs = gym.make(args.task)
     # you can also use tianshou.env.SubprocVectorEnv
-    train_envs = DummyVectorEnv(
+    train_envs = SubprocVectorEnv(
         [lambda: my_env(**task_parameter) for _ in range(args.training_num)]
     )
     # test_envs = gym.make(args.task)
-    test_envs = DummyVectorEnv(
+    test_envs = SubprocVectorEnv(
         [lambda: my_env(**task_parameter) for _ in range(args.test_num)]
     )
     # seed
@@ -202,7 +203,7 @@ def test_dqn(args=get_args()):
         pprint.pprint(result)
         # Let's watch its performance!
 
-        envs = DummyVectorEnv(
+        envs = SubprocVectorEnv(
             [
                 lambda: my_env(**task_parameter)
             ]
