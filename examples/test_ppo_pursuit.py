@@ -1,10 +1,10 @@
 """
 code that train pursuit with ppo
 tested with myPursuit and myPursuit_message for small parameters
+code is copied from test_ppo.py in https://github.com/thu-ml/tianshou/blob/master/test/discrete/test_ppo.py
 
 not yet test for reproducibility :(
 not yet test on machine :(
-parameters are set somewhat arbitrarly, should find a paper someday
 """
 import argparse
 import os
@@ -19,7 +19,7 @@ from tianshou.data import Collector, PrioritizedVectorReplayBuffer, VectorReplay
 from tianshou.env import DummyVectorEnv, MultiDiscreteToDiscrete, SubprocVectorEnv
 from tianshou.trainer import onpolicy_trainer
 from tianshou.utils import TensorboardLogger
-from tianshou.utils.net.common import Net, ActorCritic
+from tianshou.utils.net.common import ActorCritic, DataParallelNet, Net
 from tianshou.utils.net.discrete import Actor, Critic
 from tianshou.policy import PPOPolicy
 
@@ -30,41 +30,42 @@ sys.path.append("..")
 sys.path.append("../lib")
 sys.path.append("../lib/policy_lib")
 from lib.myppo import myPPOPolicy
-from lib.myPursuit_gym import my_parallel_env as my_env
+# from lib.myPursuit_gym import my_parallel_env as my_env
 # from lib.myPursuit_gym_message import my_parallel_env_message as my_env
 
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--task", type=str, default="pursuit_v4")
-    parser.add_argument("--reward-threshold", type=float, default=None)
-    parser.add_argument("--seed", type=int, default=None)
-    parser.add_argument("--eps-test", type=float, default=0.05)
-    parser.add_argument("--eps-train", type=float, default=0.1)
-    parser.add_argument("--buffer-size", type=int, default=20000)
-    parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--gamma", type=float, default=0.9)
-    parser.add_argument("--n-step", type=int, default=3)
-    parser.add_argument("--target-update-freq", type=int, default=320)
-    parser.add_argument("--epoch", type=int, default=20)
-    parser.add_argument("--step-per-epoch", type=int, default=10000)
-    parser.add_argument("--step-per-collect", type=int, default=100)
-    parser.add_argument("--repeat-per-collect", type=int, default=4)
-    parser.add_argument("--update-per-step", type=float, default=0.1)
-    parser.add_argument("--batch-size", type=int, default=256)
+    parser.add_argument('--task', type=str, default='pursuit_v4')
+    parser.add_argument('--reward-threshold', type=float, default=None)
+    parser.add_argument('--seed', type=int, default=None)
+    parser.add_argument('--buffer-size', type=int, default=20000)
+    parser.add_argument('--lr', type=float, default=3e-4)
+    parser.add_argument('--gamma', type=float, default=0.99)
+    parser.add_argument('--epoch', type=int, default=10)
+    parser.add_argument('--step-per-epoch', type=int, default=50000)
+    parser.add_argument('--step-per-collect', type=int, default=2000)
+    parser.add_argument('--repeat-per-collect', type=int, default=10)
+    parser.add_argument('--batch-size', type=int, default=64)
+    parser.add_argument('--hidden-sizes', type=int, nargs='*', default=[64, 64])
+    parser.add_argument('--training-num', type=int, default=20)
+    parser.add_argument('--test-num', type=int, default=100)
+    parser.add_argument('--logdir', type=str, default='log')
+    parser.add_argument('--render', type=float, default=0.)
     parser.add_argument(
-        "--hidden-sizes", type=int, nargs="*", default=[128, 128, 128, 128]
+        '--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu'
     )
-    parser.add_argument("--training-num", type=int, default=10)
-    parser.add_argument("--test-num", type=int, default=100)
-    parser.add_argument("--logdir", type=str, default="log")
-    parser.add_argument("--render", type=float, default=0.0)
-    parser.add_argument("--prioritized-replay", action="store_true", default=False)
-    parser.add_argument("--alpha", type=float, default=0.6)
-    parser.add_argument("--beta", type=float, default=0.4)
-    parser.add_argument(
-        "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu"
-    )
+    # ppo special
+    parser.add_argument('--vf-coef', type=float, default=0.5)
+    parser.add_argument('--ent-coef', type=float, default=0.0)
+    parser.add_argument('--eps-clip', type=float, default=0.2)
+    parser.add_argument('--max-grad-norm', type=float, default=0.5)
+    parser.add_argument('--gae-lambda', type=float, default=0.95)
+    parser.add_argument('--rew-norm', type=int, default=0)
+    parser.add_argument('--norm-adv', type=int, default=0)
+    parser.add_argument('--recompute-adv', type=int, default=0)
+    parser.add_argument('--dual-clip', type=float, default=None)
+    parser.add_argument('--value-clip', type=int, default=0)
     args = parser.parse_known_args()[0]
     return args
 
@@ -78,8 +79,7 @@ def test_ppo(args=get_args()):
         "n_evaders": 8,
         "n_pursuers": 8,
     }
-    args.render = 0.05
-    args.step_per_epoch = 2000
+    args.hidden_size = [128,256,128]
     if args.seed is None:
         args.seed = int(np.random.rand() * 100000)
 
@@ -122,47 +122,50 @@ def test_ppo(args=get_args()):
     torch.manual_seed(args.seed)
     train_envs.seed(args.seed)
     test_envs.seed(args.seed)
-    # Q_param = V_param = {"hidden_sizes": [128]}
     # model
-    net = Net(
-        args.state_shape,
-        args.action_shape,
-        hidden_sizes=args.hidden_sizes,
-        device=args.device,
-        # dueling=(Q_param, V_param),
-    ).to(args.device)
-    actor = Actor(net, args.action_shape, device=args.device)
-    critic = Critic(net, device=args.device)
-    optim = torch.optim.Adam(ActorCritic(actor, critic).parameters(), lr=args.lr)
-
-    def dist(p):
-        return torch.distributions.Categorical(logits=p)
-
+    net = Net(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
+    if torch.cuda.is_available():
+        actor = DataParallelNet(
+            Actor(net, args.action_shape, device=None).to(args.device)
+        )
+        critic = DataParallelNet(Critic(net, device=None).to(args.device))
+    else:
+        actor = Actor(net, args.action_shape, device=args.device).to(args.device)
+        critic = Critic(net, device=args.device).to(args.device)
+    actor_critic = ActorCritic(actor, critic)
+    # orthogonal initialization
+    for m in actor_critic.modules():
+        if isinstance(m, torch.nn.Linear):
+            torch.nn.init.orthogonal_(m.weight)
+            torch.nn.init.zeros_(m.bias)
+    optim = torch.optim.Adam(actor_critic.parameters(), lr=args.lr)
+    dist = torch.distributions.Categorical
     policy = myPPOPolicy(
+        num_agents=task_parameter["n_pursuers"],
         actor=actor,
         critic=critic,
         optim=optim,
         dist_fn=dist,
-        num_agents=task_parameter["n_pursuers"],
-    ).to(
-        args.device
-    )  # not sure if need to() ot not
-
-    # # buffer
-    # if args.prioritized_replay:
-    #     buf = PrioritizedVectorReplayBuffer(
-    #         args.buffer_size,
-    #         buffer_num=len(train_envs),
-    #         alpha=args.alpha,
-    #         beta=args.beta,
-    #     )
-    # else:
-    buf = VectorReplayBuffer(args.buffer_size, buffer_num=len(train_envs))
+        discount_factor=args.gamma,
+        max_grad_norm=args.max_grad_norm,
+        eps_clip=args.eps_clip,
+        vf_coef=args.vf_coef,
+        ent_coef=args.ent_coef,
+        gae_lambda=args.gae_lambda,
+        reward_normalization=args.rew_norm,
+        dual_clip=args.dual_clip,
+        value_clip=args.value_clip,
+        action_space=env.action_space,
+        deterministic_eval=True,
+        advantage_normalization=args.norm_adv,
+        recompute_advantage=args.recompute_adv
+    )
     # collector
-    train_collector = Collector(policy, train_envs, buf, exploration_noise=True)
-    test_collector = Collector(policy, test_envs, exploration_noise=True)
-    # policy.set_eps(1)
-    train_collector.collect(n_step=args.batch_size * args.training_num)
+    train_collector = Collector(
+        policy, train_envs, VectorReplayBuffer(args.buffer_size, len(train_envs))
+    )
+    test_collector = Collector(policy, test_envs)
+    # train_collector.collect(n_step=args.batch_size * args.training_num)
     train_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     # log
     log_path = os.path.join(args.logdir, args.task, "ppo", train_datetime)
@@ -194,7 +197,6 @@ def test_ppo(args=get_args()):
         args.test_num,
         args.batch_size,
         step_per_collect=args.step_per_collect,
-        update_per_step=args.update_per_step,
         stop_fn=stop_fn,
         save_best_fn=save_best_fn,
         logger=logger,
