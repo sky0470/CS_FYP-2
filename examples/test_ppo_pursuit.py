@@ -30,7 +30,7 @@ sys.path.append("..")
 sys.path.append("../lib")
 sys.path.append("../lib/policy_lib")
 from lib.myppo import myPPOPolicy
-# from lib.myPursuit_gym import my_parallel_env as my_env
+from lib.myPursuit_gym import my_parallel_env as my_env
 # from lib.myPursuit_gym_message import my_parallel_env_message as my_env
 
 
@@ -75,11 +75,22 @@ def test_ppo(args=get_args()):
         "shared_reward": False,
         "surround": False,
         "freeze_evaders": True,
-        "max_cycles": 50,
-        "n_evaders": 8,
-        "n_pursuers": 8,
+
+        "x_size": 10,
+        "y_size": 10,
+        "obs_range": 5,
+        "max_cycles": 40,
+
+        "n_evaders": 2,
+        "n_pursuers": 5,
+
+        "catch_reward": 0.5,
+        "urgency_reward": -0.05,
+        "n_catch": 1,
+        "tag_reward": 0,
     }
-    args.hidden_size = [128,256,128]
+    args.epoch = 100
+    args.hidden_sizes = [128, 128]
     if args.seed is None:
         args.seed = int(np.random.rand() * 100000)
 
