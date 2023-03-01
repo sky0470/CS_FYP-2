@@ -1,11 +1,11 @@
 """
-code that train pursuit with ppo
-tested with myPursuit and myPursuit_message for small parameters
-code is copied from test_ppo.py in https://github.com/thu-ml/tianshou/blob/master/test/discrete/test_ppo.py
+code that train pursuit with ppo with lstm
 
+not yet test for myPursuit_message
 not yet test for reproducibility :(
 not yet test on machine :(
 """
+
 import argparse
 import os
 import pprint
@@ -30,6 +30,7 @@ sys.path.append("..")
 sys.path.append("../lib")
 sys.path.append("../lib/policy_lib")
 from lib.myppo import myPPOPolicy
+from lib.recurrent import Recurrent
 from lib.myPursuit_gym import my_parallel_env as my_env
 # from lib.myPursuit_gym_message import my_parallel_env_message as my_env
 
@@ -135,15 +136,16 @@ def test_ppo(args=get_args()):
     train_envs.seed(args.seed)
     test_envs.seed(args.seed)
     # model
-    net = Net(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
+    # net = Net(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
+    net = Recurrent(1, args.state_shape, action_shape=args.hidden_sizes[-1], device=args.device)
     if torch.cuda.is_available():
         actor = DataParallelNet(
-            Actor(net, args.action_shape, device=None).to(args.device)
+            Actor(net, args.action_shape, device=None, preprocess_net_output_dim=args.hidden_sizes[-1]).to(args.device)
         )
-        critic = DataParallelNet(Critic(net, device=None).to(args.device))
+        critic = DataParallelNet(Critic(net, device=None, preprocess_net_output_dim=args.hidden_sizes[-1]).to(args.device))
     else:
-        actor = Actor(net, args.action_shape, device=args.device).to(args.device)
-        critic = Critic(net, device=args.device).to(args.device)
+        actor = Actor(net, args.action_shape, device=args.device, preprocess_net_output_dim=args.hidden_sizes[-1]).to(args.device)
+        critic = Critic(net, device=args.device, preprocess_net_output_dim=args.hidden_sizes[-1]).to(args.device)
     actor_critic = ActorCritic(actor, critic)
     # orthogonal initialization
     for m in actor_critic.modules():
@@ -174,13 +176,13 @@ def test_ppo(args=get_args()):
     )
     # collector
     train_collector = Collector(
-        policy, train_envs, VectorReplayBuffer(args.buffer_size, len(train_envs))
+        policy, train_envs, VectorReplayBuffer(args.buffer_size, len(train_envs), stack_num=10)
     )
     test_collector = Collector(policy, test_envs)
     # train_collector.collect(n_step=args.batch_size * args.training_num)
     train_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     # log
-    log_path = os.path.join(args.logdir, args.task, "ppo", train_datetime)
+    log_path = os.path.join(args.logdir, args.task, "ppo_lstm", train_datetime)
     print(train_datetime)
     print(str(my_env))
     print(str(args))

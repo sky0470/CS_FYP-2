@@ -138,10 +138,32 @@ class myPPOPolicy(PPOPolicy):
         logits = torch.empty(
             [num_agents, training_num, num_actions], device=self.device
         )
+        if state is not None:
+            state_ret = {
+                "hidden": torch.empty(
+                    [training_num, num_agents, 128], device=self.device
+                ),
+                "cell": torch.empty(
+                    [training_num, num_agents, 128], device=self.device
+                ),
+            }
+        else:
+            state_ret = None
         for i in range(num_agents):
-            logits[i], hidden = self.actor(
-                batch.obs[:, i], state=state, info=batch.info
-            )
+            if state is None:
+                logits[i], hidden = self.actor(
+                    batch.obs[:, i], state=state, info=batch.info
+                )
+            else:
+                hidden = state["hidden"][:, (i,)]
+                cell = state["cell"][:, (i,)]
+                logits[i], _state = self.actor(
+                    batch.obs[:, i],
+                    state={"hidden": hidden, "cell": cell},
+                    info=batch.info,
+                )
+                state_ret["hidden"][:, (i,)] = _state["hidden"]
+                state_ret["cell"][:, (i,)] = _state["cell"]
         logits = logits.transpose(1, 0)
 
         if isinstance(logits, tuple):
@@ -161,7 +183,7 @@ class myPPOPolicy(PPOPolicy):
         for i in range(num_agents):
             act_ = act_ + bases * act[:, i]
             bases = bases // num_actions
-        return Batch(logits=logits, act=act_, state=None, dist=dist)
+        return Batch(logits=logits, act=act_, state=state_ret, dist=dist)
 
     # from base.py
     def update(
@@ -186,7 +208,7 @@ class myPPOPolicy(PPOPolicy):
         batch, indices = buffer.sample(sample_size)
         self.updating = True
 
-        num_agents = batch.obs.shape[1]
+        num_agents = buffer.obs.shape[1]
         num_actions = 5
 
         def action(act: np.ndarray) -> np.ndarray:
@@ -203,13 +225,13 @@ class myPPOPolicy(PPOPolicy):
         losses, clip_losses, vf_losses, ent_losses = [], [], [], []
         for i in range(num_agents):
             _buffer_batch = Batch(
-                obs=np.expand_dims(buffer.obs[:, i], axis=1),
-                rew=buffer.rew[:, i],  # np.expand_dims(buffer.rew[:, i], axis=1),
+                obs=buffer.obs[:, (i,)],
+                rew=buffer.rew[:, i],
                 info=buffer.info,
                 policy=buffer.policy,
                 terminated=buffer.terminated,
                 truncated=buffer.truncated,
-                obs_next=np.expand_dims(buffer.obs_next[:, i], axis=1),
+                obs_next=buffer.obs_next[:, (i,)],
                 act=buffer_act[:, i],
             )
             _buffer = ReplayBuffer(
@@ -223,14 +245,18 @@ class myPPOPolicy(PPOPolicy):
                 _buffer.add(b)
 
             _batch = Batch(
-                obs=np.expand_dims(batch.obs[:, i], axis=1),
-                rew=batch.rew[:, i],  # np.expand_dims(batch.rew[:, i], axis=1),
+                obs=(batch.obs.swapaxes(1, 2) if batch.obs.ndim == 6 else batch.obs)[
+                    :, (i,)
+                ],
+                rew=batch.rew[:, i],
                 info=batch.info,
                 policy=batch.policy,
                 terminated=batch.terminated,
                 truncated=batch.truncated,
                 done=batch.done,
-                obs_next=np.expand_dims(batch.obs_next[:, i], axis=1),
+                obs_next=(
+                    batch.obs_next.swapaxes(1, 2) if batch.obs.ndim == 6 else batch.obs
+                )[:, (i,)],
                 act=batch_act[:, i],
             )
             _batch = self.process_fn(_batch, _buffer, indices)
