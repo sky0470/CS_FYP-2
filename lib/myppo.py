@@ -138,20 +138,10 @@ class myPPOPolicy(PPOPolicy):
         logits = torch.empty(
             [num_agents, training_num, num_actions], device=self.device
         )
-        if state is not None:
-            state_ret = {
-                "hidden": torch.empty(
-                    [training_num, num_agents, 128], device=self.device
-                ),
-                "cell": torch.empty(
-                    [training_num, num_agents, 128], device=self.device
-                ),
-            }
-        else:
-            state_ret = None
+        state_ret = None
         for i in range(num_agents):
             if state is None:
-                logits[i], hidden = self.actor(
+                logits[i], _state = self.actor(
                     batch.obs[:, i], state=state, info=batch.info
                 )
             else:
@@ -162,6 +152,16 @@ class myPPOPolicy(PPOPolicy):
                     state={"hidden": hidden, "cell": cell},
                     info=batch.info,
                 )
+            if _state is not None:
+                if state_ret is None:
+                    state_ret = {
+                        "hidden": torch.empty(
+                            [training_num, num_agents, 128], device=self.device
+                        ),
+                        "cell": torch.empty(
+                            [training_num, num_agents, 128], device=self.device
+                        ),
+                    }
                 state_ret["hidden"][:, (i,)] = _state["hidden"]
                 state_ret["cell"][:, (i,)] = _state["cell"]
         logits = logits.transpose(1, 0)
