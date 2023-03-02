@@ -1,5 +1,15 @@
 # CS_FYP
 
+## Getting started
+1. setup environment
+```
+pip install -r requirements.txt
+```
+1. replace `gym` to `gymnasium`
+  - replace `import gym` to `import gymnasium as gym` in `/path/to/site-package/tianshou/env/gym_wrappers`
+  - replace `import gym` to `import gymnasium as gym` and `from gymnasium.spaces import Box, Discrete, MultiBinary, MultiDiscrete` in `/path/to/site-package/tianshou/policy/base.py`
+
+
 ## TODO
 
 ### Main Task
