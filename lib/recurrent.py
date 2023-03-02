@@ -46,6 +46,7 @@ class Recurrent(nn.Module):
             num_layers=layer_num,
             batch_first=True,
         )
+        self.state_shape = state_shape
         self.fc1 = nn.Linear(int(np.prod(state_shape)), hidden_layer_size)
         self.fc2 = nn.Linear(hidden_layer_size, int(np.prod(action_shape)))
 
@@ -70,11 +71,12 @@ class Recurrent(nn.Module):
         # In short, the tensor's shape in training phase is longer than which
         # in evaluation phase.
         # print(f'before flatten {obs.shape}')
-        if obs.shape[0] == 1:
+        if obs.shape[0] == 1: # squeese obs but don't keep batch_num dimension
             obs = torch.unsqueeze(obs.squeeze(), 0)
         else:
             obs = obs.squeeze()
-        obs = obs.flatten(-3)
+        # obs = obs.flatten(-len(self.state_shape)) # flatten for Linear()
+        obs = obs.flatten(-3) # flatten for Linear()
         # print(f'after flatten {obs.shape}')
 
         if len(obs.shape) == 2:
@@ -95,6 +97,8 @@ class Recurrent(nn.Module):
         obs = self.fc2(obs[:, -1])
         # please ensure the first dim is batch size: [bsz, len, ...]
         # print(f'output of recurrent {obs.shape}')
+        print(hidden.shape)
+        print(cell.shape)
         return obs, {
             "hidden": hidden.transpose(0, 1).detach(),
             "cell": cell.transpose(0, 1).detach()

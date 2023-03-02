@@ -54,7 +54,7 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
         aec_env.reset()
         self.observation_space_ = batch_space(
             batch_space(
-                aec_env.unwrapped.observation_space_all("pursuer_0"), aec_env.num_agents
+                aec_env.unwrapped.observation_space_all("pursuer_0"), 2
             ),
             aec_env.num_agents,
         )
@@ -72,10 +72,10 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
             for agent in self.aec_env.agents
             if not (self.aec_env.terminations[agent] or self.aec_env.truncations[agent])
         }
-        observations = np.tile(
-            np.array(list(observations.values())),
-            (self.aec_env.num_agents,) + (1,) * (len(self.observation_space.shape) - 1),
-        )
+        obs = np.array(list(observations.values()))
+        obs_mean = obs.mean(axis=0)
+        obs_mean = np.repeat(obs_mean[np.newaxis, :], obs.shape[0], axis=0)
+        observations = np.swapaxes(np.stack([obs, obs_mean]), 0, 1)
 
         if not return_info:
             return observations
@@ -121,12 +121,11 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
 
         self.agents = self.aec_env.agents
 
-        observations = np.tile(
-            np.array(list(observations.values())),
-            # (self.aec_env.num_agents,) + (1,) * (len(self.observation_space.shape)-1),
-            (self.observation_space.shape[0],)
-            + (1,) * (len(self.observation_space.shape) - 1),
-        )
+        obs = np.array(list(observations.values()))
+        obs_mean = obs.mean(axis=0)
+        obs_mean = np.repeat(obs_mean[np.newaxis, :], obs.shape[0], axis=0)
+        observations = np.swapaxes(np.stack([obs, obs_mean]), 0, 1)
+
         rewards = np.array(list(rewards.values()))  # for CTDE
         # rewards = np.array(list(rewards.values())).sum() # for centralized
         terminations = any(terminations.values())

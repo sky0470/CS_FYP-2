@@ -13,12 +13,14 @@ class myPPOPolicy(PPOPolicy):
     def __init__(
         self,
         num_agents: int = None,
+        state_shape = None,
         *args,
         **kwargs: Any,
     ) -> None:
         assert num_agents is not None
         super().__init__(*args, **kwargs)
         self.num_actions = 5
+        self.state_shape = state_shape
         self.num_agents = num_agents
         self.bases = self.num_actions ** (num_agents - 1)
         self.bases_arr = self.num_actions ** np.arange(num_agents - 1, -1, -1)
@@ -247,7 +249,7 @@ class myPPOPolicy(PPOPolicy):
             _batch = Batch(
                 obs=np.expand_dims(
                     batch.obs.swapaxes(1, 2)[:, i]
-                    if batch.obs.ndim == 6
+                    if batch.obs.ndim == 3 + len(self.state_shape)
                     else batch.obs[:, i],
                     axis=1,
                 ),
@@ -259,7 +261,7 @@ class myPPOPolicy(PPOPolicy):
                 done=batch.done,
                 obs_next=np.expand_dims(
                     batch.obs_next.swapaxes(1, 2)[:, i]
-                    if batch.obs_next.ndim == 6
+                    if batch.obs_next.ndim == 3 + len(self.state_shape)
                     else batch.obs_next[:, i],
                     axis=1,
                 ),

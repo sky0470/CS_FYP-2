@@ -95,7 +95,7 @@ def test_ppo(args=get_args()):
     if args.seed is None:
         args.seed = int(np.random.rand() * 100000)
 
-    train_very_fast = False
+    train_very_fast = True
     if train_very_fast:
         # Set the following parameters so that the program run very fast but train nothing
         task_parameter["max_cycles"] = 50  # 500
@@ -156,6 +156,7 @@ def test_ppo(args=get_args()):
     dist = torch.distributions.Categorical
     policy = myPPOPolicy(
         num_agents=task_parameter["n_pursuers"],
+        state_shape=args.state_shape,
         actor=actor,
         critic=critic,
         optim=optim,
