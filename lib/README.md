@@ -74,4 +74,4 @@ Feature improved:
   "/path/to/site-package/tianshou/env/gym_wrappers", line 45, in __init__
     assert isinstance(env.action_space, gym.spaces.MultiDiscrete)
   ```
-  - solution: replace `import gym` to `import gymnasium as gym` in `/path/to/site-package/tianshou/env/gym_wrappers`
+  - solution: replace `import gym` with `import gymnasium as gym` in `/path/to/site-package/tianshou/env/gym_wrappers`
