@@ -139,7 +139,7 @@ def test_ppo(args=get_args()):
     # model
     # net = Net(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
     net = Recurrent(1, args.state_shape, action_shape=args.hidden_sizes[-1], device=args.device)
-    if torch.cuda.is_available():
+    if torch.cuda.is_available() and False:
         actor = DataParallelNet(
             Actor(net, args.action_shape, device=None, preprocess_net_output_dim=args.hidden_sizes[-1]).to(args.device)
         )

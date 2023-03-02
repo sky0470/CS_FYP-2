@@ -97,8 +97,6 @@ class Recurrent(nn.Module):
         obs = self.fc2(obs[:, -1])
         # please ensure the first dim is batch size: [bsz, len, ...]
         # print(f'output of recurrent {obs.shape}')
-        print(hidden.shape)
-        print(cell.shape)
         return obs, {
             "hidden": hidden.transpose(0, 1).detach(),
             "cell": cell.transpose(0, 1).detach()

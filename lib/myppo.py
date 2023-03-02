@@ -147,8 +147,8 @@ class myPPOPolicy(PPOPolicy):
                     batch.obs[:, i], state=state, info=batch.info
                 )
             else:
-                hidden = np.expand_dims(state["hidden"][:, i], axis=1)
-                cell = np.expand_dims(state["cell"][:, i], axis=1)
+                hidden = torch.unsqueeze(state["hidden"][:, i], axis=1)
+                cell = torch.unsqueeze(state["cell"][:, i], axis=1)
                 logits[i], _state = self.actor(
                     batch.obs[:, i],
                     state={"hidden": hidden, "cell": cell},
