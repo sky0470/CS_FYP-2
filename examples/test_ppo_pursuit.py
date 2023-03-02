@@ -136,7 +136,7 @@ def test_ppo(args=get_args()):
     test_envs.seed(args.seed)
     # model
     net = Net(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
-    if torch.cuda.is_available():
+    if torch.cuda.is_available() and False: # always don't use DataParallelNet until multi-gpu is configured
         actor = DataParallelNet(
             Actor(net, args.action_shape, device=None).to(args.device)
         )

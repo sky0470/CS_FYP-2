@@ -145,8 +145,8 @@ class myPPOPolicy(PPOPolicy):
                     batch.obs[:, i], state=state, info=batch.info
                 )
             else:
-                hidden = state["hidden"][:, (i,)]
-                cell = state["cell"][:, (i,)]
+                hidden = np.expand_dims(state["hidden"][:, i], axis=1)
+                cell = np.expand_dims(state["cell"][:, i], axis=1)
                 logits[i], _state = self.actor(
                     batch.obs[:, i],
                     state={"hidden": hidden, "cell": cell},
@@ -225,13 +225,13 @@ class myPPOPolicy(PPOPolicy):
         losses, clip_losses, vf_losses, ent_losses = [], [], [], []
         for i in range(num_agents):
             _buffer_batch = Batch(
-                obs=buffer.obs[:, (i,)],
+                obs=np.expand_dims(buffer.obs[:, i], axis=1),
                 rew=buffer.rew[:, i],
                 info=buffer.info,
                 policy=buffer.policy,
                 terminated=buffer.terminated,
                 truncated=buffer.truncated,
-                obs_next=buffer.obs_next[:, (i,)],
+                obs_next=np.expand_dims(buffer.obs_next[:, i], axis=1),
                 act=buffer_act[:, i],
             )
             _buffer = ReplayBuffer(
@@ -245,18 +245,24 @@ class myPPOPolicy(PPOPolicy):
                 _buffer.add(b)
 
             _batch = Batch(
-                obs=(batch.obs.swapaxes(1, 2) if batch.obs.ndim == 6 else batch.obs)[
-                    :, (i,)
-                ],
+                obs=np.expand_dims(
+                    batch.obs.swapaxes(1, 2)[:, i]
+                    if batch.obs.ndim == 6
+                    else batch.obs[:, i],
+                    axis=1,
+                ),
                 rew=batch.rew[:, i],
                 info=batch.info,
                 policy=batch.policy,
                 terminated=batch.terminated,
                 truncated=batch.truncated,
                 done=batch.done,
-                obs_next=(
-                    batch.obs_next.swapaxes(1, 2) if batch.obs.ndim == 6 else batch.obs
-                )[:, (i,)],
+                obs_next=np.expand_dims(
+                    batch.obs_next.swapaxes(1, 2)[:, i]
+                    if batch.obs_next.ndim == 6
+                    else batch.obs_next[:, i],
+                    axis=1,
+                ),
                 act=batch_act[:, i],
             )
             _batch = self.process_fn(_batch, _buffer, indices)
