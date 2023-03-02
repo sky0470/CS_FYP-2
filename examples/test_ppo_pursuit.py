@@ -18,7 +18,8 @@ from torch.utils.tensorboard import SummaryWriter
 from tianshou.data import Collector, PrioritizedVectorReplayBuffer, VectorReplayBuffer
 from tianshou.env import DummyVectorEnv, MultiDiscreteToDiscrete, SubprocVectorEnv
 from tianshou.trainer import onpolicy_trainer
-from tianshou.utils import TensorboardLogger
+# from tianshou.utils import TensorboardLogger
+from tianshou.utils import WandbLogger
 from tianshou.utils.net.common import ActorCritic, DataParallelNet, Net
 from tianshou.utils.net.discrete import Actor, Critic
 from tianshou.policy import PPOPolicy
@@ -182,16 +183,25 @@ def test_ppo(args=get_args()):
     train_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     # log
     log_path = os.path.join(args.logdir, args.task, "ppo", train_datetime)
-    print(train_datetime)
-    print(str(my_env))
-    print(str(args))
-    print(str(task_parameter))
+    
+    # logger and writer
+    config = dict(
+        args=vars(args),
+        task_parameter=task_parameter,
+        train_datetime=train_datetime,
+        log_path=log_path,
+    )
+    logger = WandbLogger(project="pursuit_ppo", entity="csfyp", config=config)
     writer = SummaryWriter(log_path)
     writer.add_text("args", str(args))
     writer.add_text("env_para", str(task_parameter))
-    writer.add_text("env_name", str(task_parameter))
+    writer.add_text("env_name", str(my_env))
     writer.add_text("date_time", train_datetime)
-    logger = TensorboardLogger(writer)
+    # logger = TensorboardLogger(writer)
+    logger.load(writer)
+    print("config:")
+    pprint.pprint(config)
+    print("-" * 20)
 
     def save_best_fn(policy):
         torch.save(policy.state_dict(), os.path.join(log_path, "policy.pth"))
