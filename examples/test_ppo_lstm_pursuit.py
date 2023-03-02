@@ -192,7 +192,7 @@ def test_ppo(args=get_args()):
         train_datetime=train_datetime,
         log_path=log_path,
     )
-    logger = WandbLogger(project="pursuit_ppo-lstm", entity="csfyp", config=config)
+    logger = WandbLogger(project="pursuit_ppo", entity="csfyp", config=config)
     writer = SummaryWriter(log_path)
     writer.add_text("args", str(args))
     writer.add_text("env_para", str(task_parameter))
