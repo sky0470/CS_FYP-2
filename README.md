@@ -12,15 +12,20 @@ Our code are only tested under the following setting, correctness is not guarant
 ## Getting started
 1. setup conda environment (optional)
     ```
-    conda create --name fyp2 python=3.10
+    conda create --name pursuit python=3.10
     ```
 1. setup environment
     ```
     pip install .
     ```
 1. replace `gym` with `gymnasium` 
-  - replace `import gym` with `import gymnasium as gym` in `/path/to/site-package/tianshou/env/gym_wrappers`
-  - replace `import gym` with `import gymnasium as gym` and `from gymnasium.spaces import Box, Discrete, MultiBinary, MultiDiscrete` in `/path/to/site-package/tianshou/policy/base.py`
+    - replace `import gym` with `import gymnasium as gym` in `/path/to/site-package/tianshou/env/gym_wrappers`
+    - replace `import gym` with `import gymnasium as gym` and `from gymnasium.spaces import Box, Discrete, MultiBinary, MultiDiscrete` in `/path/to/site-package/tianshou/policy/base.py`
+1. execute `test/test-package.py` to see if install successful
+    ```
+    python test/test-package.py
+    ```
+
 
 ## Repo structure
 **Note**: directly run code under this `pursuit_msg` is not recommended, use import with the installed package!!
