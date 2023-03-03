@@ -31,8 +31,8 @@ sys.path.append("..")
 sys.path.append("../lib")
 sys.path.append("../lib/policy_lib")
 from lib.myppo import myPPOPolicy
-from lib.myPursuit_gym import my_parallel_env as my_env
-# from lib.myPursuit_gym_message import my_parallel_env_message as my_env
+# from lib.myPursuit_gym import my_parallel_env as my_env
+from lib.myPursuit_gym_message import my_parallel_env_message as my_env
 
 
 def get_args():
@@ -91,11 +91,12 @@ def test_ppo(args=get_args()):
         "tag_reward": 0,
     }
     args.epoch = 100
-    args.hidden_sizes = [128, 128]
+    args.hidden_sizes = [512, 512]
+    args.lr = 3e-5
     if args.seed is None:
         args.seed = int(np.random.rand() * 100000)
 
-    train_very_fast = True
+    train_very_fast = False
     if train_very_fast:
         # Set the following parameters so that the program run very fast but train nothing
         task_parameter["max_cycles"] = 50  # 500
@@ -156,6 +157,7 @@ def test_ppo(args=get_args()):
     policy = myPPOPolicy(
         num_agents=task_parameter["n_pursuers"],
         state_shape=args.state_shape,
+        device=args.device,
         actor=actor,
         critic=critic,
         optim=optim,
@@ -191,7 +193,7 @@ def test_ppo(args=get_args()):
         train_datetime=train_datetime,
         log_path=log_path,
     )
-    logger = WandbLogger(project="pursuit_ppo", entity="csfyp", config=config)
+    logger = WandbLogger(project="pursuit_ppo", entity="csfyp", config=config, train_interval=int(1e5), update_interval=int(1e5))
     writer = SummaryWriter(log_path)
     writer.add_text("args", str(args))
     writer.add_text("env_para", str(task_parameter))

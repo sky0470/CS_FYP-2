@@ -14,6 +14,7 @@ class myPPOPolicy(PPOPolicy):
         self,
         num_agents: int = None,
         state_shape = None,
+        device = None,
         *args,
         **kwargs: Any,
     ) -> None:
@@ -24,7 +25,7 @@ class myPPOPolicy(PPOPolicy):
         self.num_agents = num_agents
         self.bases = self.num_actions ** (num_agents - 1)
         self.bases_arr = self.num_actions ** np.arange(num_agents - 1, -1, -1)
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = device # "cuda" if torch.cuda.is_available() else "cpu"
 
     # modified
     def learn(  # type: ignore

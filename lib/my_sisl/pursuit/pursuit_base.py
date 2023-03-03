@@ -547,7 +547,8 @@ class Pursuit:
 
         xlo, xhi, ylo, yhi, xolo, xohi, yolo, yohi = self.obs_clip(xp, yp)
 
-        obs[0:3, xlo:xhi, ylo:yhi] = np.abs(self.model_state[0:3, xlo:xhi, ylo:yhi])
+        obs[1:3, xlo:xhi, ylo:yhi] = np.abs(self.model_state[1:3, xlo:xhi, ylo:yhi])
+        obs[0, xp, yp] = 3
         return obs
 
     def obs_clip(self, x, y):

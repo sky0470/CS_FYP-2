@@ -95,8 +95,9 @@ def test_ppo(args=get_args()):
     args.hidden_sizes = [128, 128]
     if args.seed is None:
         args.seed = int(np.random.rand() * 100000)
+    args.lr = 3e-5
 
-    train_very_fast = True
+    train_very_fast = False
     if train_very_fast:
         # Set the following parameters so that the program run very fast but train nothing
         task_parameter["max_cycles"] = 50  # 500
@@ -158,6 +159,7 @@ def test_ppo(args=get_args()):
     policy = myPPOPolicy(
         num_agents=task_parameter["n_pursuers"],
         state_shape=args.state_shape,
+        device=args.device,
         actor=actor,
         critic=critic,
         optim=optim,
