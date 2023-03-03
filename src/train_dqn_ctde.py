@@ -1,6 +1,6 @@
 """
-example of training cartpole with dqn
-code from https://github.com/thu-ml/tianshou/blob/master/test/discrete/test_dqn.py
+code that train pursuit with dqn
+code can compile for very small parameter but have not been tested in a full train
 """
 import argparse
 import os
@@ -12,18 +12,31 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from tianshou.data import Collector, PrioritizedVectorReplayBuffer, VectorReplayBuffer
-from tianshou.env import DummyVectorEnv
+from tianshou.env import DummyVectorEnv, MultiDiscreteToDiscrete, SubprocVectorEnv
 from tianshou.policy import DQNPolicy
 from tianshou.trainer import offpolicy_trainer
 from tianshou.utils import TensorboardLogger
 from tianshou.utils.net.common import Net
 
+import sys
+import datetime
+
+from pursuit_msg.pursuit import my_parallel_env as my_env
+# from pursuit_msg.pursuit import my_parallel_env_message as my_env
+from pursuit_msg.policy.mydqn import myDQNPolicy
+
+# sys.path.append("..")
+# sys.path.append("../lib")
+# from lib.myPursuit_gym import my_parallel_env as my_env
+# # from lib.myPursuit_gym_message import my_parallel_env_message as my_env
+# from lib.mydqn import myDQNPolicy
+
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--task", type=str, default="CartPole-v1")
+    parser.add_argument("--task", type=str, default="pursuit_v4")
     parser.add_argument("--reward-threshold", type=float, default=None)
-    parser.add_argument("--seed", type=int, default=1626)
+    parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--eps-test", type=float, default=0.05)
     parser.add_argument("--eps-train", type=float, default=0.1)
     parser.add_argument("--buffer-size", type=int, default=20000)
@@ -54,22 +67,52 @@ def get_args():
 
 
 def test_dqn(args=get_args()):
-    env = gym.make(args.task)
+    task_parameter = {
+        "shared_reward": False,
+        "surround": False,
+        "freeze_evaders": True,
+        "max_cycles": 50,
+        "n_evaders": 8,
+        "n_pursuers": 8,
+    }
+    args.render = 0.05
+    args.step_per_epoch = 2000
+    args.epoch = 100
+    if args.seed is None:
+        args.seed = int(np.random.rand() * 100000)
+
+    train_very_fast = False
+    if train_very_fast:
+        # Set the following parameters so that the program run very fast but train nothing
+        task_parameter["max_cycles"] = 50  # 500
+        task_parameter["x_size"] = 8  # 16
+        task_parameter["y_size"] = 8  # 16
+        task_parameter["obs_range"] = 5  # 7, should be odd
+        args.training_num = 5  # 10
+        args.test_num = 50  # 100
+        args.hidden_sizes = [64, 64]  # [128, 128, 128, 128]
+        args.epoch = 2  # 10  # 20
+        args.step_per_epoch = 10  # 500  # 10000
+        args.render = 0.05
+
+    env = my_env(**task_parameter)
     args.state_shape = env.observation_space.shape or env.observation_space.n
-    args.action_shape = env.action_space.shape or env.action_space.n
+    # args.action_shape = env.action_space.shape or env.action_space.n
+    args.state_shape = args.state_shape[1:]
+    args.action_shape = 5
     if args.reward_threshold is None:
-        default_reward_threshold = {"CartPole-v1": 195}
+        default_reward_threshold = {"pursuit_v4": 1500}
         args.reward_threshold = default_reward_threshold.get(
-            args.task, env.spec.reward_threshold
+            args.task  # , env.spec.reward_threshold
         )
     # train_envs = gym.make(args.task)
     # you can also use tianshou.env.SubprocVectorEnv
-    train_envs = DummyVectorEnv(
-        [lambda: gym.make(args.task) for _ in range(args.training_num)]
+    train_envs = SubprocVectorEnv(
+        [lambda: my_env(**task_parameter) for _ in range(args.training_num)]
     )
     # test_envs = gym.make(args.task)
-    test_envs = DummyVectorEnv(
-        [lambda: gym.make(args.task) for _ in range(args.test_num)]
+    test_envs = SubprocVectorEnv(
+        [lambda: my_env(**task_parameter) for _ in range(args.test_num)]
     )
     # seed
     np.random.seed(args.seed)
@@ -86,7 +129,7 @@ def test_dqn(args=get_args()):
         # dueling=(Q_param, V_param),
     ).to(args.device)
     optim = torch.optim.Adam(net.parameters(), lr=args.lr)
-    policy = DQNPolicy(
+    policy = myDQNPolicy(
         net,
         optim,
         args.gamma,
@@ -107,10 +150,19 @@ def test_dqn(args=get_args()):
     train_collector = Collector(policy, train_envs, buf, exploration_noise=True)
     test_collector = Collector(policy, test_envs, exploration_noise=True)
     # policy.set_eps(1)
-    # train_collector.collect(n_step=args.batch_size * args.training_num)
+    train_collector.collect(n_step=args.batch_size * args.training_num)
+    train_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     # log
-    log_path = os.path.join(args.logdir, args.task, "dqn")
+    log_path = os.path.join(args.logdir, args.task, "dqn_ctde", train_datetime)
+    print(train_datetime)
+    print(str(my_env))
+    print(str(args))
+    print(str(task_parameter))
     writer = SummaryWriter(log_path)
+    writer.add_text("args", str(args))
+    writer.add_text("env_name", str(my_env))
+    writer.add_text("env_para", str(task_parameter))
+    writer.add_text("date_time", train_datetime)
     logger = TensorboardLogger(writer)
 
     def save_best_fn(policy):
@@ -149,20 +201,22 @@ def test_dqn(args=get_args()):
         save_best_fn=save_best_fn,
         logger=logger,
     )
-    assert stop_fn(result["best_reward"])
+    # assert stop_fn(result['best_reward'])
 
     if __name__ == "__main__":
-        from gym.wrappers import TimeLimit
-
         pprint.pprint(result)
         # Let's watch its performance!
-        env = TimeLimit(
-            gym.make("CartPole-v1", render_mode="human"), max_episode_steps=1000
+
+        envs = SubprocVectorEnv(
+            [
+                lambda: my_env(**task_parameter)
+            ]
         )
+
         policy.eval()
         policy.set_eps(args.eps_test)
-        collector = Collector(policy, env)
-        result = collector.collect(n_episode=1, render=args.render)
+        collector = Collector(policy, envs)
+        result = collector.collect(n_episode=1, render=None)
         rews, lens = result["rews"], result["lens"]
         print(f"Final reward: {rews.mean()}, length: {lens.mean()}")
 

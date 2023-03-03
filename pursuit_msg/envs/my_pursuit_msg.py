@@ -11,17 +11,17 @@ import warnings
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar
 
 # from pettingzoo.sisl import pursuit_v4
-from my_sisl import pursuit_v4
+from pursuit_msg.my_sisl import pursuit_v4
 from pettingzoo.utils import agent_selector, wrappers
 from pettingzoo.utils.env import ParallelEnv
 from tianshou.env import MultiDiscreteToDiscrete
 
 # from gymnasium.vector.utils import batch_space
-from my_gym_vector_utils.spaces import batch_space
+from pursuit_msg.my_gym_vector_utils.spaces import batch_space
 
 import numpy as np
 
-from .myPursuit_gym import aec_to_parallel_wrapper
+from .my_pursuit import aec_to_parallel_wrapper
 
 SEED = 42
 

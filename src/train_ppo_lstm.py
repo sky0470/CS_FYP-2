@@ -1,11 +1,11 @@
 """
-code that train pursuit with ppo
-tested with myPursuit and myPursuit_message for small parameters
-code is copied from test_ppo.py in https://github.com/thu-ml/tianshou/blob/master/test/discrete/test_ppo.py
+code that train pursuit with ppo with lstm
 
+not yet test for myPursuit_message
 not yet test for reproducibility :(
 not yet test on machine :(
 """
+
 import argparse
 import os
 import pprint
@@ -27,12 +27,19 @@ from tianshou.policy import PPOPolicy
 import sys
 import datetime
 
-sys.path.append("..")
-sys.path.append("../lib")
-sys.path.append("../lib/policy_lib")
-from lib.myppo import myPPOPolicy
+
+# from pursuit_msg.pursuit import my_parallel_env as my_env
+from pursuit_msg.pursuit import my_parallel_env_message as my_env
+from pursuit_msg.policy.myppo import myPPOPolicy
+from pursuit_msg.policy.recurrent import Recurrent
+
+# sys.path.append("..")
+# sys.path.append("../lib")
+# sys.path.append("../lib/policy_lib")
+# from lib.myppo import myPPOPolicy
+# from lib.policy.recurrent import Recurrent
 # from lib.myPursuit_gym import my_parallel_env as my_env
-from lib.myPursuit_gym_message import my_parallel_env_message as my_env
+# # from lib.myPursuit_gym_message import my_parallel_env_message as my_env
 
 
 def get_args():
@@ -91,10 +98,10 @@ def test_ppo(args=get_args()):
         "tag_reward": 0,
     }
     args.epoch = 100
-    args.hidden_sizes = [512, 512]
-    args.lr = 3e-5
+    args.hidden_sizes = [128, 128]
     if args.seed is None:
         args.seed = int(np.random.rand() * 100000)
+    args.lr = 3e-5
 
     train_very_fast = False
     if train_very_fast:
@@ -137,15 +144,16 @@ def test_ppo(args=get_args()):
     train_envs.seed(args.seed)
     test_envs.seed(args.seed)
     # model
-    net = Net(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
-    if torch.cuda.is_available() and False: # always don't use DataParallelNet until multi-gpu is configured
+    # net = Net(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
+    net = Recurrent(1, args.state_shape, action_shape=args.hidden_sizes[-1], device=args.device)
+    if torch.cuda.is_available() and False:
         actor = DataParallelNet(
-            Actor(net, args.action_shape, device=None).to(args.device)
+            Actor(net, args.action_shape, device=None, preprocess_net_output_dim=args.hidden_sizes[-1]).to(args.device)
         )
-        critic = DataParallelNet(Critic(net, device=None).to(args.device))
+        critic = DataParallelNet(Critic(net, device=None, preprocess_net_output_dim=args.hidden_sizes[-1]).to(args.device))
     else:
-        actor = Actor(net, args.action_shape, device=args.device).to(args.device)
-        critic = Critic(net, device=args.device).to(args.device)
+        actor = Actor(net, args.action_shape, device=args.device, preprocess_net_output_dim=args.hidden_sizes[-1]).to(args.device)
+        critic = Critic(net, device=args.device, preprocess_net_output_dim=args.hidden_sizes[-1]).to(args.device)
     actor_critic = ActorCritic(actor, critic)
     # orthogonal initialization
     for m in actor_critic.modules():
@@ -178,14 +186,14 @@ def test_ppo(args=get_args()):
     )
     # collector
     train_collector = Collector(
-        policy, train_envs, VectorReplayBuffer(args.buffer_size, len(train_envs))
+        policy, train_envs, VectorReplayBuffer(args.buffer_size, len(train_envs), stack_num=10)
     )
     test_collector = Collector(policy, test_envs)
     # train_collector.collect(n_step=args.batch_size * args.training_num)
     train_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     # log
-    log_path = os.path.join(args.logdir, args.task, "ppo", train_datetime)
-    
+    log_path = os.path.join(args.logdir, args.task, "ppo_lstm", train_datetime)
+
     # logger and writer
     config = dict(
         args=vars(args),
@@ -193,7 +201,7 @@ def test_ppo(args=get_args()):
         train_datetime=train_datetime,
         log_path=log_path,
     )
-    logger = WandbLogger(project="pursuit_ppo", entity="csfyp", config=config, train_interval=int(1e5), update_interval=int(1e5))
+    logger = WandbLogger(project="pursuit_ppo", entity="csfyp", config=config)
     writer = SummaryWriter(log_path)
     writer.add_text("args", str(args))
     writer.add_text("env_para", str(task_parameter))
