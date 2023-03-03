@@ -28,8 +28,8 @@ import sys
 import datetime
 
 
-# from pursuit_msg.pursuit import my_parallel_env as my_env
-from pursuit_msg.pursuit import my_parallel_env_message as my_env
+from pursuit_msg.pursuit import my_parallel_env as my_env
+# from pursuit_msg.pursuit import my_parallel_env_message as my_env
 from pursuit_msg.policy.myppo import myPPOPolicy
 from pursuit_msg.policy.recurrent import Recurrent
 
