@@ -1,6 +1,19 @@
 # CS_FYP
 
+## Prerequisites
+Our code are only tested under the following setting, correctness is not guaranteed if other settings are used
+- python `3.10` (`3.10.9`)
+- conda `23.1.0`
+- linux `ubuntu 18.04.5 LTS`
+- GPU
+    - NVIDIA GeForce RTX 3090 
+    - Quadro P620 
+
 ## Getting started
+1. setup conda environment (optional)
+    ```
+    conda create --name fyp2 python=3.10
+    ```
 1. setup environment
     ```
     pip install .
@@ -10,6 +23,7 @@
   - replace `import gym` with `import gymnasium as gym` and `from gymnasium.spaces import Box, Discrete, MultiBinary, MultiDiscrete` in `/path/to/site-package/tianshou/policy/base.py`
 
 ## Repo structure
+**Note**: directly run code under this `pursuit_msg` is not recommended, use import with the installed package!!
 ```
 .
 ├── examples
