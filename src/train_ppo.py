@@ -22,18 +22,12 @@ from tianshou.trainer import onpolicy_trainer
 from tianshou.utils import WandbLogger
 from tianshou.utils.net.common import ActorCritic, DataParallelNet, Net
 from tianshou.utils.net.discrete import Actor, Critic
-from tianshou.policy import PPOPolicy
+# from tianshou.policy import PPOPolicy
 
 import sys
 import datetime
 
-sys.path.append("..")
-sys.path.append("../lib")
-sys.path.append("../lib/policy_lib")
-from lib.myppo import myPPOPolicy
-# from lib.myPursuit_gym import my_parallel_env as my_env
-from lib.myPursuit_gym_message import my_parallel_env_message as my_env
-
+from pursuit_msg.policy.myppo import myPPOPolicy
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -41,14 +35,17 @@ def get_args():
     parser.add_argument('--reward-threshold', type=float, default=None)
     parser.add_argument('--seed', type=int, default=None)
     parser.add_argument('--buffer-size', type=int, default=20000)
-    parser.add_argument('--lr', type=float, default=3e-4)
+    # parser.add_argument('--lr', type=float, default=3e-4)
+    parser.add_argument('--lr', type=float, default=3e-5)
     parser.add_argument('--gamma', type=float, default=0.99)
-    parser.add_argument('--epoch', type=int, default=10)
+    # parser.add_argument('--epoch', type=int, default=10)
+    parser.add_argument('--epoch', type=int, default=50)
     parser.add_argument('--step-per-epoch', type=int, default=50000)
     parser.add_argument('--step-per-collect', type=int, default=2000)
     parser.add_argument('--repeat-per-collect', type=int, default=10)
     parser.add_argument('--batch-size', type=int, default=64)
-    parser.add_argument('--hidden-sizes', type=int, nargs='*', default=[64, 64])
+    # parser.add_argument('--hidden-sizes', type=int, nargs='*', default=[64, 64])
+    parser.add_argument('--hidden-sizes', type=int, nargs='*', default=[128, 128])
     parser.add_argument('--training-num', type=int, default=20)
     parser.add_argument('--test-num', type=int, default=100)
     parser.add_argument('--logdir', type=str, default='log')
@@ -56,6 +53,7 @@ def get_args():
     parser.add_argument(
         '--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu'
     )
+
     # ppo special
     parser.add_argument('--vf-coef', type=float, default=0.5)
     parser.add_argument('--ent-coef', type=float, default=0.0)
@@ -67,11 +65,26 @@ def get_args():
     parser.add_argument('--recompute-adv', type=int, default=0)
     parser.add_argument('--dual-clip', type=float, default=None)
     parser.add_argument('--value-clip', type=int, default=0)
+
+    # switch env
+    parser.add_argument('--env', type=str, default=None)
+
+    # train very fast
+    parser.add_argument('--quick', default=False, action=argparse.BooleanOptionalAction)
+
     args = parser.parse_known_args()[0]
-    return args
+
+    # filter overrode args
+    args_overrode = {
+        opt.dest: getattr(args, opt.dest)
+        for opt in parser._option_string_actions.values()
+        if hasattr(args, opt.dest) and opt.default != getattr(args, opt.dest)
+    }
+
+    return args, args_overrode
 
 
-def test_ppo(args=get_args()):
+def test_ppo(args=get_args()[0], args_overrode=dict()):
     task_parameter = {
         "shared_reward": False,
         "surround": False,
@@ -79,7 +92,7 @@ def test_ppo(args=get_args()):
 
         "x_size": 10,
         "y_size": 10,
-        "obs_range": 5,
+        "obs_range": 3,
         "max_cycles": 40,
 
         "n_evaders": 2,
@@ -90,19 +103,29 @@ def test_ppo(args=get_args()):
         "n_catch": 1,
         "tag_reward": 0,
     }
-    args.epoch = 100
-    args.hidden_sizes = [512, 512]
-    args.lr = 3e-5
+
+    # switch env
+    print(f"env: {args.env}")
+    if args.env is None:
+        from pursuit_msg.pursuit import my_parallel_env as my_env
+    elif args.env == "msg":
+        from pursuit_msg.pursuit import my_parallel_env_message as my_env
+    elif args.env == "grid-loc":
+        pass
+    else:
+        raise NotImplementedError(f"env '{args.env}' is not implemented")
+
     if args.seed is None:
         args.seed = int(np.random.rand() * 100000)
 
-    train_very_fast = False
-    if train_very_fast:
+    print(f"quicktrain: {args.quick}")
+    # train very fast
+    if args.quick:
         # Set the following parameters so that the program run very fast but train nothing
         task_parameter["max_cycles"] = 50  # 500
         task_parameter["x_size"] = 8  # 16
         task_parameter["y_size"] = 8  # 16
-        task_parameter["obs_range"] = 5  # 7, should be odd
+        task_parameter["obs_range"] = 3  # 7, should be odd
         args.training_num = 5  # 10
         args.test_num = 5  # 100
         args.hidden_sizes = [64, 64]  # [128, 128, 128, 128]
@@ -110,7 +133,6 @@ def test_ppo(args=get_args()):
         args.step_per_epoch = 10  # 500  # 10000
         args.render = 0.05
         args.logdir = "quicktrain"
-
 
     env = my_env(**task_parameter)
     args.state_shape = env.observation_space.shape or env.observation_space.n
@@ -189,11 +211,15 @@ def test_ppo(args=get_args()):
     # logger and writer
     config = dict(
         args=vars(args),
+        args_overrode=args_overrode,
         task_parameter=task_parameter,
         train_datetime=train_datetime,
         log_path=log_path,
     )
-    logger = WandbLogger(project="pursuit_ppo", entity="csfyp", config=config, train_interval=int(1e5), update_interval=int(1e5))
+    logger = WandbLogger(project="pursuit_ppo" if not args.quick else "pursuit_test", 
+                         entity="csfyp", 
+                         config=config, 
+                        )
     writer = SummaryWriter(log_path)
     writer.add_text("args", str(args))
     writer.add_text("env_para", str(task_parameter))
@@ -226,7 +252,9 @@ def test_ppo(args=get_args()):
         save_best_fn=save_best_fn,
         logger=logger,
     )
-    # assert stop_fn(result['best_reward'])
+
+    # upload policy to wandb
+    logger.wandb_run.save(os.path.join(log_path, "policy.pth"), base_path=log_path)
 
     if __name__ == "__main__":
         pprint.pprint(result)
@@ -242,4 +270,5 @@ def test_ppo(args=get_args()):
 
 
 if __name__ == "__main__":
-    test_ppo(get_args())
+    args, args_overrode = get_args()
+    test_ppo(args, args_overrode)

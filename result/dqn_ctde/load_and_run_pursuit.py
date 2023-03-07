@@ -21,12 +21,15 @@ from tianshou.utils.net.common import Net
 import sys
 import datetime
 
-sys.path.append("../..")
-sys.path.append("../../lib")
-sys.path.append("..")
-sys.path.append("../lib")
-from lib.myPursuit_gym import my_parallel_env
-from lib.mydqn import myDQNPolicy
+from pursuit_msg.pursuit import my_parallel_env as my_env
+from pursuit_msg.policy.mydqn import myDQNPolicy
+
+# sys.path.append("../..")
+# sys.path.append("../../lib")
+# sys.path.append("..")
+# sys.path.append("../lib")
+# from lib.myPursuit_gym import my_parallel_env
+# from lib.mydqn import myDQNPolicy
 
 
 def get_args():
@@ -88,9 +91,8 @@ def test_dqn(args=get_args()):
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
-    env = my_parallel_env
-    env_ = my_parallel_env(**task_parameter)
-    args.state_shape = env_.observation_space.shape or env_.observation_space.n
+    env = my_env(**task_parameter)
+    args.state_shape = env.observation_space.shape or env.observation_space.n
     # args.action_shape = env.action_space.shape or env.action_space.n
     args.state_shape = args.state_shape[1:]
     args.action_shape = 5
@@ -121,16 +123,16 @@ def test_dqn(args=get_args()):
     if __name__ == "__main__":
         policy.load_state_dict(torch.load(args.path, map_location=torch.device('cpu')))
 
-        env = DummyVectorEnv(
+        envs = DummyVectorEnv(
             [
-                lambda: env(render_mode="human", **task_parameter),
+                lambda: my_env(render_mode="human", **task_parameter),
             ]
         )
-        env.seed(args.seed)
+        envs.seed(args.seed)
 
         policy.eval()
         policy.set_eps(args.eps_test)
-        collector = Collector(policy, env)
+        collector = Collector(policy, envs)
         result = collector.collect(n_episode=1, render=args.render)
         rews, lens = result["rews"], result["lens"]
         print(f"Final reward: {rews.mean()}, length: {lens.mean()}")

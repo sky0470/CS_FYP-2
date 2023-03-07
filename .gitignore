@@ -10,7 +10,10 @@
 
 log_file*
 log/
+quicktrain/
 
+*egg-info/
+build/
 wandb/
 runs/
 checkpts/
