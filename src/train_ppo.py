@@ -35,14 +35,17 @@ def get_args():
     parser.add_argument('--reward-threshold', type=float, default=None)
     parser.add_argument('--seed', type=int, default=None)
     parser.add_argument('--buffer-size', type=int, default=20000)
-    parser.add_argument('--lr', type=float, default=3e-4)
+    # parser.add_argument('--lr', type=float, default=3e-4)
+    parser.add_argument('--lr', type=float, default=3e-5)
     parser.add_argument('--gamma', type=float, default=0.99)
-    parser.add_argument('--epoch', type=int, default=10)
+    # parser.add_argument('--epoch', type=int, default=10)
+    parser.add_argument('--epoch', type=int, default=50)
     parser.add_argument('--step-per-epoch', type=int, default=50000)
     parser.add_argument('--step-per-collect', type=int, default=2000)
     parser.add_argument('--repeat-per-collect', type=int, default=10)
     parser.add_argument('--batch-size', type=int, default=64)
-    parser.add_argument('--hidden-sizes', type=int, nargs='*', default=[64, 64])
+    # parser.add_argument('--hidden-sizes', type=int, nargs='*', default=[64, 64])
+    parser.add_argument('--hidden-sizes', type=int, nargs='*', default=[128, 128])
     parser.add_argument('--training-num', type=int, default=20)
     parser.add_argument('--test-num', type=int, default=100)
     parser.add_argument('--logdir', type=str, default='log')
@@ -70,10 +73,18 @@ def get_args():
     parser.add_argument('--quick', default=False, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_known_args()[0]
-    return args
+
+    # filter overrode args
+    args_overrode = {
+        opt.dest: getattr(args, opt.dest)
+        for opt in parser._option_string_actions.values()
+        if hasattr(args, opt.dest) and opt.default != getattr(args, opt.dest)
+    }
+
+    return args, args_overrode
 
 
-def test_ppo(args=get_args()):
+def test_ppo(args=get_args()[0], args_overrode=dict()):
     task_parameter = {
         "shared_reward": False,
         "surround": False,
@@ -81,7 +92,7 @@ def test_ppo(args=get_args()):
 
         "x_size": 10,
         "y_size": 10,
-        "obs_range": 5,
+        "obs_range": 3,
         "max_cycles": 40,
 
         "n_evaders": 2,
@@ -114,7 +125,7 @@ def test_ppo(args=get_args()):
         task_parameter["max_cycles"] = 50  # 500
         task_parameter["x_size"] = 8  # 16
         task_parameter["y_size"] = 8  # 16
-        task_parameter["obs_range"] = 5  # 7, should be odd
+        task_parameter["obs_range"] = 3  # 7, should be odd
         args.training_num = 5  # 10
         args.test_num = 5  # 100
         args.hidden_sizes = [64, 64]  # [128, 128, 128, 128]
@@ -200,6 +211,7 @@ def test_ppo(args=get_args()):
     # logger and writer
     config = dict(
         args=vars(args),
+        args_overrode=args_overrode,
         task_parameter=task_parameter,
         train_datetime=train_datetime,
         log_path=log_path,
@@ -258,4 +270,5 @@ def test_ppo(args=get_args()):
 
 
 if __name__ == "__main__":
-    test_ppo(get_args())
+    args, args_overrode = get_args()
+    test_ppo(args, args_overrode)
