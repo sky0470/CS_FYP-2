@@ -10,6 +10,7 @@
 
 log_file*
 log/
+quicktrain/
 
 *egg-info/
 build/

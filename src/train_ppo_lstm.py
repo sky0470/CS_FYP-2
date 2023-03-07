@@ -22,25 +22,15 @@ from tianshou.trainer import onpolicy_trainer
 from tianshou.utils import WandbLogger
 from tianshou.utils.net.common import ActorCritic, DataParallelNet, Net
 from tianshou.utils.net.discrete import Actor, Critic
-from tianshou.policy import PPOPolicy
+# from tianshou.policy import PPOPolicy
 
 import sys
 import datetime
-
 
 from pursuit_msg.pursuit import my_parallel_env as my_env
 # from pursuit_msg.pursuit import my_parallel_env_message as my_env
 from pursuit_msg.policy.myppo import myPPOPolicy
 from pursuit_msg.policy.recurrent import Recurrent
-
-# sys.path.append("..")
-# sys.path.append("../lib")
-# sys.path.append("../lib/policy_lib")
-# from lib.myppo import myPPOPolicy
-# from lib.policy.recurrent import Recurrent
-# from lib.myPursuit_gym import my_parallel_env as my_env
-# # from lib.myPursuit_gym_message import my_parallel_env_message as my_env
-
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -201,7 +191,10 @@ def test_ppo(args=get_args()):
         train_datetime=train_datetime,
         log_path=log_path,
     )
-    logger = WandbLogger(project="pursuit_ppo", entity="csfyp", config=config)
+    logger = WandbLogger(project="pursuit_ppo", 
+                         entity="csfyp", 
+                         config=config
+                        )
     writer = SummaryWriter(log_path)
     writer.add_text("args", str(args))
     writer.add_text("env_para", str(task_parameter))
@@ -234,7 +227,9 @@ def test_ppo(args=get_args()):
         save_best_fn=save_best_fn,
         logger=logger,
     )
-    # assert stop_fn(result['best_reward'])
+    
+    # upload policy to wandb
+    logger.wandb_run.save(os.path.join(log_path, "policy.pth"), base_path=log_path)
 
     if __name__ == "__main__":
         pprint.pprint(result)
