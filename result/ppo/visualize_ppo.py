@@ -22,12 +22,15 @@ from tianshou.utils.net.discrete import Actor, Critic
 import sys
 import datetime
 
-sys.path.append("../..")
-sys.path.append("../../lib")
-sys.path.append("..")
-sys.path.append("../lib")
-from lib.myppo import myPPOPolicy
-from lib.myPursuit_gym import my_parallel_env as my_env
+from pursuit_msg.pursuit import my_parallel_env as my_env
+from pursuit_msg.policy.myppo import myPPOPolicy
+
+# sys.path.append("../..")
+# sys.path.append("../../lib")
+# sys.path.append("..")
+# sys.path.append("../lib")
+# from lib.myppo import myPPOPolicy
+# from lib.myPursuit_gym import my_parallel_env as my_env
 
 # from lib.myPursuit_gym_message import my_parallel_env_message as my_env
 

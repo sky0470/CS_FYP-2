@@ -11,6 +11,8 @@
 log_file*
 log/
 
+*egg-info/
+build/
 wandb/
 runs/
 checkpts/

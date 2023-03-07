@@ -13,11 +13,11 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar
 from tianshou.env import MultiDiscreteToDiscrete
 
 # from pettingzoo.sisl import pursuit_v4
-from my_sisl import pursuit_v4 
+from pursuit_msg.my_sisl import pursuit_v4 
 from pettingzoo.utils import agent_selector, wrappers
 from pettingzoo.utils.env import ParallelEnv
 # from gymnasium.vector.utils import batch_space
-from my_gym_vector_utils.spaces import batch_space
+from pursuit_msg.my_gym_vector_utils.spaces import batch_space
 
 import numpy as np
 
@@ -203,21 +203,21 @@ class aec_to_parallel_wrapper(ParallelEnv):
 # my_parallel_env = my_parallel_wrapper_fn(pursuit_v4.env, seed=SEED)
 my_parallel_env = my_parallel_wrapper_fn(pursuit_v4.env)
 
-if __name__ == "__main__":
-    import pygame
+# if __name__ == "__main__":
+#     import pygame
 
-    clock = pygame.time.Clock()
+#     clock = pygame.time.Clock()
 
-    # env = gym.make("LunarLander-v2", render_mode="human")
-    env = my_parallel_env(
-        shared_reward=False, n_evaders=3, n_pursuers=8, render_mode="human")
-    observation = env.reset(SEED)
+#     # env = gym.make("LunarLander-v2", render_mode="human")
+#     env = my_parallel_env(
+#         shared_reward=False, n_evaders=3, n_pursuers=8, render_mode="human")
+#     observation = env.reset(SEED)
 
-    for _ in range(10 * 5):
-        clock.tick(10)
-        action = env.action_space.sample()
-        observation, reward, terminated, truncated, info = env.step(action)
+#     for _ in range(10 * 5):
+#         clock.tick(10)
+#         action = env.action_space.sample()
+#         observation, reward, terminated, truncated, info = env.step(action)
 
-        if terminated or truncated:
-            observation = env.reset()
-    env.close()
+#         if terminated or truncated:
+#             observation = env.reset()
+#     env.close()

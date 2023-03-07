@@ -21,9 +21,11 @@ from tianshou.utils.net.common import Net
 import sys
 import datetime
 
-sys.path.append("..")
-sys.path.append("../lib")
-from lib.myPursuit_gym import my_parallel_env
+from pursuit_msg.pursuit import my_parallel_env
+
+# sys.path.append("..")
+# sys.path.append("../lib")
+# from lib.myPursuit_gym import my_parallel_env
 
 
 def get_args():
