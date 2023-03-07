@@ -112,7 +112,7 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
     elif args.env == "msg":
         from pursuit_msg.pursuit import my_parallel_env_message as my_env
     elif args.env == "grid-loc":
-        pass
+        from pursuit_msg.pursuit import my_parallel_env_grid_env as my_env
     else:
         raise NotImplementedError(f"env '{args.env}' is not implemented")
 
