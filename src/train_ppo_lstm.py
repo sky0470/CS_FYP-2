@@ -27,8 +27,6 @@ from tianshou.utils.net.discrete import Actor, Critic
 import sys
 import datetime
 
-from pursuit_msg.pursuit import my_parallel_env as my_env
-# from pursuit_msg.pursuit import my_parallel_env_message as my_env
 from pursuit_msg.policy.myppo import myPPOPolicy
 from pursuit_msg.policy.recurrent import Recurrent
 
@@ -53,6 +51,7 @@ def get_args():
     parser.add_argument(
         '--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu'
     )
+
     # ppo special
     parser.add_argument('--vf-coef', type=float, default=0.5)
     parser.add_argument('--ent-coef', type=float, default=0.0)
@@ -64,6 +63,13 @@ def get_args():
     parser.add_argument('--recompute-adv', type=int, default=0)
     parser.add_argument('--dual-clip', type=float, default=None)
     parser.add_argument('--value-clip', type=int, default=0)
+    
+    # switch env
+    parser.add_argument('--env', type=str, default=None)
+
+    # train very fast
+    parser.add_argument('--quick', default=False, action=argparse.BooleanOptionalAction)
+    
     args = parser.parse_known_args()[0]
     return args
 
@@ -87,14 +93,24 @@ def test_ppo(args=get_args()):
         "n_catch": 1,
         "tag_reward": 0,
     }
-    args.epoch = 100
-    args.hidden_sizes = [128, 128]
+
+    # switch env
+    print(f"env: {args.env}")
+    if args.env is None:
+        from pursuit_msg.pursuit import my_parallel_env as my_env
+    elif args.env == "msg":
+        from pursuit_msg.pursuit import my_parallel_env_message as my_env
+    elif args.env == "grid-loc":
+        pass
+    else:
+        raise NotImplementedError(f"env '{args.env}' is not implemented")
+
     if args.seed is None:
         args.seed = int(np.random.rand() * 100000)
-    args.lr = 3e-5
 
-    train_very_fast = False
-    if train_very_fast:
+    print(f"quicktrain: {args.quick}")
+    # train very fast
+    if args.quick:
         # Set the following parameters so that the program run very fast but train nothing
         task_parameter["max_cycles"] = 50  # 500
         task_parameter["x_size"] = 8  # 16
@@ -107,7 +123,6 @@ def test_ppo(args=get_args()):
         args.step_per_epoch = 10  # 500  # 10000
         args.render = 0.05
         args.logdir = "quicktrain"
-
 
     env = my_env(**task_parameter)
     args.state_shape = env.observation_space.shape or env.observation_space.n
@@ -191,7 +206,7 @@ def test_ppo(args=get_args()):
         train_datetime=train_datetime,
         log_path=log_path,
     )
-    logger = WandbLogger(project="pursuit_ppo", 
+    logger = WandbLogger(project="pursuit_ppo" if not args.quick else "pursuit_test", 
                          entity="csfyp", 
                          config=config
                         )
