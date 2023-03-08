@@ -11,17 +11,17 @@ import warnings
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, TypeVar
 
 # from pettingzoo.sisl import pursuit_v4
-from my_sisl import pursuit_v4
+from pursuit_msg.my_sisl import pursuit_v4
 from pettingzoo.utils import agent_selector, wrappers
 from pettingzoo.utils.env import ParallelEnv
 from tianshou.env import MultiDiscreteToDiscrete
 
 # from gymnasium.vector.utils import batch_space
-from my_gym_vector_utils.spaces import batch_space
+from pursuit_msg.my_gym_vector_utils.spaces import batch_space
 
 import numpy as np
 
-from .myPursuit_gym import aec_to_parallel_wrapper
+from .my_pursuit import aec_to_parallel_wrapper
 
 SEED = 42
 
@@ -38,10 +38,10 @@ ActionDict = Dict[AgentID, ActionType]
 
 
 # from utils.conversion.py
-def my_parallel_wrapper_fn_message(env_fn, seed=None):
+def my_parallel_wrapper_fn_grid_loc(env_fn, seed=None):
     def par_fn(**kwargs):
         env = env_fn(**kwargs)
-        env = aec_to_parallel_wrapper_message(env, seed)
+        env = aec_to_parallel_wrapper_grid_loc(env, seed)
         env = MultiDiscreteToDiscrete(env)
         return env
 
@@ -49,7 +49,7 @@ def my_parallel_wrapper_fn_message(env_fn, seed=None):
 
 
 # from utils.conversion.py
-class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
+class aec_to_parallel_wrapper_grid_loc(aec_to_parallel_wrapper):
     def __init__(self, aec_env, seed=None):
         aec_env.reset()
         self.observation_space_ = batch_space(
@@ -129,4 +129,4 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
 
 # from sisl.pursuit.pursuit.py
 # my_parallel_env = my_parallel_wrapper_fn(pursuit_v4.env, seed=SEED)
-my_parallel_env_message = my_parallel_wrapper_fn_message(pursuit_v4.env)
+my_parallel_env_grid_loc = my_parallel_wrapper_fn_grid_loc(pursuit_v4.env)
