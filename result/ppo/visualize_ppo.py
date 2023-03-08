@@ -22,18 +22,7 @@ from tianshou.utils.net.discrete import Actor, Critic
 import sys
 import datetime
 
-from pursuit_msg.pursuit import my_parallel_env as my_env
 from pursuit_msg.policy.myppo import myPPOPolicy
-
-# sys.path.append("../..")
-# sys.path.append("../../lib")
-# sys.path.append("..")
-# sys.path.append("../lib")
-# from lib.myppo import myPPOPolicy
-# from lib.myPursuit_gym import my_parallel_env as my_env
-
-# from lib.myPursuit_gym_message import my_parallel_env_message as my_env
-
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -42,18 +31,22 @@ def get_args():
     parser.add_argument("--reward-threshold", type=float, default=None)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--buffer-size", type=int, default=20000)
-    parser.add_argument("--lr", type=float, default=3e-4)
+    # parser.add_argument("--lr", type=float, default=3e-4)
+    parser.add_argument("--lr", type=float, default=3e-5)
     parser.add_argument("--gamma", type=float, default=0.99)
-    parser.add_argument("--epoch", type=int, default=10)
+    # parser.add_argument("--epoch", type=int, default=10)
+    parser.add_argument("--epoch", type=int, default=50)
     parser.add_argument("--step-per-epoch", type=int, default=50000)
     parser.add_argument("--step-per-collect", type=int, default=2000)
     parser.add_argument("--repeat-per-collect", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--hidden-sizes", type=int, nargs="*", default=[64, 64])
+    # parser.add_argument("--hidden-sizes", type=int, nargs="*", default=[64, 64])
+    parser.add_argument("--hidden-sizes", type=int, nargs="*", default=[128, 128])
     parser.add_argument("--training-num", type=int, default=20)
     parser.add_argument("--test-num", type=int, default=100)
     parser.add_argument("--logdir", type=str, default="log")
-    parser.add_argument("--render", type=float, default=0.0)
+    # parser.add_argument("--render", type=float, default=0.0)
+    parser.add_argument("--render", type=float, default=0.001)
     parser.add_argument(
         "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu"
     )
@@ -68,7 +61,11 @@ def get_args():
     parser.add_argument("--recompute-adv", type=int, default=0)
     parser.add_argument("--dual-clip", type=float, default=None)
     parser.add_argument("--value-clip", type=int, default=0)
-    args = parser.parse_known_args()[0]
+
+    # switch env
+    parser.add_argument('--env', type=str, default=None)
+
+    args = parser.parse_args()
     return args
 
 
@@ -77,20 +74,31 @@ def test_ppo(args=get_args()):
         "shared_reward": False,
         "surround": False,
         "freeze_evaders": True,
-        "max_cycles": 40,  # 500
+
+        "x_size": 10,
+        "y_size": 10,
+        "obs_range": 3,
+        "max_cycles": 40,
+
         "n_evaders": 2,
         "n_pursuers": 5,
-        "x_size" : 10,  # 16
-        "y_size" : 10,  # 16
-        # "obs_range" : 4,  # 7
+
         "catch_reward": 0.5,
         "urgency_reward": -0.05,
+        "n_catch": 1,
         "tag_reward": 0,
-        "obs_range": 5
     }
 
-    args.render = 0.001
-    args.hidden_sizes = [128, 128]
+    # switch env
+    print(f"env: {args.env}")
+    if args.env is None:
+        from pursuit_msg.pursuit import my_parallel_env as my_env
+    elif args.env == "msg":
+        from pursuit_msg.pursuit import my_parallel_env_message as my_env
+    elif args.env == "grid-loc":
+        from pursuit_msg.pursuit import my_parallel_env_grid_loc as my_env
+    else:
+        raise NotImplementedError(f"env '{args.env}' is not implemented")
 
     # seed
     if args.seed is None:
