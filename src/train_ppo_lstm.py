@@ -73,7 +73,7 @@ def get_args():
     # train very fast
     parser.add_argument('--quick', default=False, action=argparse.BooleanOptionalAction)
     
-    args = parser.parse_known_args()[0]
+    args = parser.parse_args()
 
     # filter overrode args
     args_overrode = {
@@ -112,7 +112,7 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
     elif args.env == "msg":
         from pursuit_msg.pursuit import my_parallel_env_message as my_env
     elif args.env == "grid-loc":
-        from pursuit_msg.pursuit import my_parallel_env_grid_env as my_env
+        from pursuit_msg.pursuit import my_parallel_env_grid_loc as my_env
     else:
         raise NotImplementedError(f"env '{args.env}' is not implemented")
 
