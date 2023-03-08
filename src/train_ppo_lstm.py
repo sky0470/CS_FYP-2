@@ -73,7 +73,7 @@ def get_args():
     # train very fast
     parser.add_argument('--quick', default=False, action=argparse.BooleanOptionalAction)
     
-    args = parser.parse_known_args()[0]
+    args = parser.parse_args()
 
     # filter overrode args
     args_overrode = {
