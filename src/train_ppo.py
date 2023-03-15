@@ -114,6 +114,8 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         from pursuit_msg.pursuit import my_parallel_env_grid_loc as my_env
     elif args.env == "full":
         from pursuit_msg.pursuit import my_parallel_env_full as my_env
+    elif args.env == "ic3":
+        from pursuit_msg.pursuit import my_parallel_env_ic3 as my_env
     else:
         raise NotImplementedError(f"env '{args.env}' is not implemented")
 

@@ -149,7 +149,7 @@ class Pursuit:
         obs_space_ic3 = spaces.Box(
             low=0,
             high=max_agents_overlap,
-            shape=(self.x_size, self.y_size, 5),
+            shape=(self.obs_range, self.obs_range, 5),
             dtype=np.float32,
         )
         act_space = spaces.Discrete(n_act_purs)
