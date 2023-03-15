@@ -31,7 +31,7 @@ class ManualPolicy:
         # if we get a key, override action using the dict
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
+                if event.key in [pygame.K_ESCAPE, pygame.K_q]:
                     # escape to end
                     exit()
 
@@ -40,7 +40,7 @@ class ManualPolicy:
                     self.env.reset()
 
                 elif event.key == pygame.K_p:
-                    print(rwd)
+                    print(f"rwd: {rwd}")
 
                 elif event.key == pygame.K_TAB:
                     self.agent_id = (self.agent_id + 1) % self.env.num_agents
@@ -62,21 +62,30 @@ if __name__ == "__main__":
 
     clock = pygame.time.Clock()
     max_fps = 5
-    game_time = 10
+    game_time = 40
 
-    env = my_env(
-        max_cycles=max_fps * game_time,
-        render_mode="human",
-        freeze_evaders=True,
-        n_evaders=1,
-        n_pursuers=2,
+    task_parameter = dict(
         shared_reward=False,
-        n_catch=1,
         surround=False,
+        freeze_evaders=True,
+
+        x_size=8, # 10 
+        y_size=6, #10
         obs_range=3,
-        x_size=5,
-        y_size=5,
+        max_cycles=max_fps * game_time, # 40
+
+        n_evaders=1, # 2
+        n_pursuers=5, # 5
+
+        catch_reward=0.5,
+        urgency_reward=-0.05,
+        n_catch=1,
+        tag_reward=0,
+        render_mode="human", # dont have this in default training param
+        catch_reward_ratio=[0, 1, 2, 0.7, 0.2, -0.5]
     )
+
+    env = my_env(**task_parameter)
     obs = env.reset()
     rwd = {}
 

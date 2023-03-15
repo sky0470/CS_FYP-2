@@ -85,24 +85,25 @@ def get_args():
 
 
 def test_ppo(args=get_args()[0], args_overrode=dict()):
-    task_parameter = {
-        "shared_reward": False,
-        "surround": False,
-        "freeze_evaders": True,
+    task_parameter = dict(
+        shared_reward=False,
+        surround=False,
+        freeze_evaders=True,
 
-        "x_size": 10,
-        "y_size": 10,
-        "obs_range": 3,
-        "max_cycles": 40,
+        x_size=10,
+        y_size=10,
+        obs_range=3,
+        max_cycles=40,
 
-        "n_evaders": 2,
-        "n_pursuers": 5,
+        n_evaders=2,
+        n_pursuers=5,
 
-        "catch_reward": 0.5,
-        "urgency_reward": -0.05,
-        "n_catch": 1,
-        "tag_reward": 0,
-    }
+        catch_reward=0.5,
+        urgency_reward=-0.05,
+        n_catch=1,
+        tag_reward=0,
+        # catch_reward_ratio=[0, 1, 2, 0.7, 0.2, -0.5],
+    )
 
     # switch env
     print(f"env: {args.env}")

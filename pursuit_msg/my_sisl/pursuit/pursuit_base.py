@@ -32,6 +32,7 @@ class Pursuit:
         surround: bool = True,
         render_mode=None,
         constraint_window: float = 1.0,
+        catch_reward_ratio = None,
     ):
         """In evade pursuit a set of pursuers must 'tag' a set of evaders.
 
@@ -121,6 +122,8 @@ class Pursuit:
         self.tag_reward = tag_reward
 
         self.catch_reward = catch_reward
+        self.catch_reward_ratio = catch_reward_ratio if catch_reward is not None else [num for num in n_pursuers] 
+        assert len(self.catch_reward_ratio) == n_pursuers + 1, "len of catch reward ratio not same as n_pursuers + 1"
 
         self.urgency_reward = urgency_reward
 
@@ -613,7 +616,7 @@ class Pursuit:
         ai = 0
         rems = 0
         xpur, ypur = np.nonzero(self.model_state[1])
-        purs_sur = np.zeros(self.n_pursuers, dtype=int) ### dtype=bool
+        purs_sur = np.zeros(self.n_pursuers, dtype=np.float64) ### dtype=bool
         for i in range(self.n_evaders):
             if self.evaders_gone[i]:
                 continue
@@ -646,7 +649,8 @@ class Pursuit:
                     removed_evade.append(ai - rems)
                     self.evaders_gone[i] = False ### True
                     rems += 1
-                    rwd = self.model_state[1,x,y] # if self.model_state[1,x,y] <=2 else 4-self.model_state[1,x,y] ###
+                    rwd = self.catch_reward_ratio[int(self.model_state[1, x, y])]
+                    # rwd = self.model_state[1,x,y] # if self.model_state[1,x,y] <=2 else 4-self.model_state[1,x,y] ###
                     for j in range(self.n_pursuers):
                         xpp, ypp = self.pursuer_layer.get_position(j)
                         if xpp == x and ypp == y:
