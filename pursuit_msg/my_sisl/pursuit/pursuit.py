@@ -125,6 +125,7 @@ class raw_env(AECEnv, EzPickle):
         self.observation_spaces = dict(zip(self.agents, self.env.observation_space))
         self.observation_spaces_all = dict(zip(self.agents, self.env.observation_space_all))
         self.observation_spaces_full = dict(zip(self.agents, self.env.observation_space_full))
+        self.observation_spaces_ic3 = dict(zip(self.agents, self.env.observation_space_ic3))
         self.steps = 0
         self.closed = False
 
@@ -190,6 +191,10 @@ class raw_env(AECEnv, EzPickle):
         o = self.env.safely_observe_full(self.agent_name_mapping[agent])
         return np.swapaxes(o, 2, 0)
 
+    def observe_ic3(self, agent):
+        o = self.env.safely_observe_ic3(self.agent_name_mapping[agent])
+        return np.swapaxes(o, 2, 0)
+
     def observation_space(self, agent: str):
         return self.observation_spaces[agent]
 
@@ -198,6 +203,9 @@ class raw_env(AECEnv, EzPickle):
 
     def observation_space_full(self, agent: str):
         return self.observation_spaces_full[agent]
+
+    def observation_space_ic3(self, agent: str):
+        return self.observation_spaces_ic3[agent]
 
     def action_space(self, agent: str):
         return self.action_spaces[agent]
