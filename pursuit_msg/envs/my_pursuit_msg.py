@@ -54,7 +54,7 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
         aec_env.reset()
         self.observation_space_ = batch_space(
             batch_space(
-                aec_env.unwrapped.observation_space_all("pursuer_0"), 2
+                aec_env.unwrapped.observation_space_all("pursuer_0"), aec_env.num_agents
             ),
             aec_env.num_agents,
         )
@@ -63,6 +63,11 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
     @property
     def observation_space(self):
         return self.observation_space_
+
+    def cal_dist(self, a,b):
+        (([xa], [ya])) = np.where(a[:,:,0]==1)
+        (([xb], [yb])) = np.where(b[:,:,0]==1)
+        return (xa-xb)**2 + (ya-yb)**2
 
     def reset(self, seed=None, return_info=False, options=None):
         self.aec_env.reset(seed=seed, return_info=return_info, options=options)
@@ -73,9 +78,13 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
             if not (self.aec_env.terminations[agent] or self.aec_env.truncations[agent])
         }
         obs = np.array(list(observations.values()))
-        obs_mean = obs.mean(axis=0)
-        obs_mean = np.repeat(obs_mean[np.newaxis, :], obs.shape[0], axis=0)
-        observations = np.swapaxes(np.stack([obs, obs_mean]), 0, 1)
+        # obs_mean = obs.mean(axis=0)
+        # obs_mean = np.repeat(obs_mean[np.newaxis, :], obs.shape[0], axis=0)
+        # observations = np.swapaxes(np.stack([obs, obs_mean]), 0, 1)
+
+        dist = np.array([[self.cal_dist(o, obs[i]) for o in obs] for i in range(obs.shape[0])])
+        order = dist.argsort()
+        observations = np.array([obs[order[i]] for i in range(obs.shape[0])])
 
         if not return_info:
             return observations
@@ -122,9 +131,13 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
         self.agents = self.aec_env.agents
 
         obs = np.array(list(observations.values()))
-        obs_mean = obs.mean(axis=0)
-        obs_mean = np.repeat(obs_mean[np.newaxis, :], obs.shape[0], axis=0)
-        observations = np.swapaxes(np.stack([obs, obs_mean]), 0, 1)
+        # obs_mean = obs.mean(axis=0)
+        # obs_mean = np.repeat(obs_mean[np.newaxis, :], obs.shape[0], axis=0)
+        # observations = np.swapaxes(np.stack([obs, obs_mean]), 0, 1)
+
+        dist = np.array([[self.cal_dist(o, obs[i]) for o in obs] for i in range(obs.shape[0])])
+        order = dist.argsort()
+        observations = np.array([obs[order[i]] for i in range(obs.shape[0])])
 
         rewards = np.array(list(rewards.values()))  # for CTDE
         # rewards = np.array(list(rewards.values())).sum() # for centralized
