@@ -9,3 +9,4 @@ tianshou==0.4.11
 torch==1.13.1
 wandb
 tensorboard
+termcolor
