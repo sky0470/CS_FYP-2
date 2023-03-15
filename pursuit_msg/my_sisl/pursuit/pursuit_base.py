@@ -122,7 +122,7 @@ class Pursuit:
         self.tag_reward = tag_reward
 
         self.catch_reward = catch_reward
-        self.catch_reward_ratio = catch_reward_ratio if catch_reward is not None else [num for num in n_pursuers] 
+        self.catch_reward_ratio = catch_reward_ratio if catch_reward_ratio is not None else [num for num in range(n_pursuers + 1)] 
         assert len(self.catch_reward_ratio) == n_pursuers + 1, "len of catch reward ratio not same as n_pursuers + 1"
 
         self.urgency_reward = urgency_reward
