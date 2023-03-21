@@ -54,7 +54,7 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
         aec_env.reset()
         self.observation_space_ = batch_space(
             batch_space(
-                aec_env.unwrapped.observation_space_all("pursuer_0"), aec_env.num_agents
+                aec_env.unwrapped.observation_space_ic3("pursuer_0"), aec_env.num_agents
             ),
             aec_env.num_agents,
         )
@@ -65,15 +65,19 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
         return self.observation_space_
 
     def cal_dist(self, a,b):
-        (([xa], [ya])) = np.where(a[:,:,0]==1)
-        (([xb], [yb])) = np.where(b[:,:,0]==1)
+        obs_range = a.shape[0]
+        idx = obs_range // 2
+        xa, ya = a[idx, idx, 3], a[idx, idx, 4]
+        xb, yb = b[idx, idx, 3], b[idx, idx, 4]
+        # (([xa], [ya])) = np.where(a[:,:,0]==1)
+        # (([xb], [yb])) = np.where(b[:,:,0]==1)
         return (xa-xb)**2 + (ya-yb)**2
 
     def reset(self, seed=None, return_info=False, options=None):
         self.aec_env.reset(seed=seed, return_info=return_info, options=options)
         self.agents = self.aec_env.agents[:]
         observations = {
-            agent: self.aec_env.unwrapped.observe_all(agent)
+            agent: self.aec_env.unwrapped.observe_ic3(agent)
             for agent in self.aec_env.agents
             if not (self.aec_env.terminations[agent] or self.aec_env.truncations[agent])
         }
@@ -119,7 +123,7 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
         truncations = dict(**self.aec_env.truncations)
         infos = dict(**self.aec_env.infos)
         observations = {
-            agent: self.aec_env.unwrapped.observe_all(agent)
+            agent: self.aec_env.unwrapped.observe_ic3(agent)
             for agent in self.aec_env.agents
         }
         while self.aec_env.agents and (
