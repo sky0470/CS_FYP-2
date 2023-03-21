@@ -250,7 +250,7 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         args.epoch,
         args.step_per_epoch,
         args.repeat_per_collect,
-        args.test_num,
+        args.test_num*5,
         args.batch_size,
         step_per_collect=args.step_per_collect,
         stop_fn=stop_fn,
