@@ -66,6 +66,9 @@ def get_args():
     parser.add_argument('--recompute-adv', type=int, default=0)
     parser.add_argument('--dual-clip', type=float, default=None)
     parser.add_argument('--value-clip', type=int, default=0)
+
+    # task param
+    parser.add_argument('--catch-reward-ratio', type=float, nargs="+", default=None)
     
     # switch env
     parser.add_argument('--env', type=str, default=None)
@@ -137,6 +140,9 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         args.step_per_epoch = 10  # 500  # 10000
         args.render = 0.05
         args.logdir = "quicktrain"
+    
+    # set catch reward ratio
+    task_parameter["catch_reward_ratio"] = args.catch_reward_ratio if args.catch_reward_ratio is not None else [num for num in range(task_parameter["n_pursuers"] + 1)] 
 
     env = my_env(**task_parameter)
     args.state_shape = env.observation_space.shape or env.observation_space.n
