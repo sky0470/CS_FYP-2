@@ -8,6 +8,7 @@ from tianshou.data import Batch, ReplayBuffer, to_numpy, to_torch_as, to_torch
 from tianshou.policy import A2CPolicy, PPOPolicy
 from tianshou.utils.net.common import ActorCritic
 
+from torch.distributions import Independent, Normal
 
 class myPPOPolicy(PPOPolicy):
     def __init__(
@@ -27,6 +28,26 @@ class myPPOPolicy(PPOPolicy):
         self.bases_arr = self.num_actions ** np.arange(num_agents - 1, -1, -1)
         self.device = device # "cuda" if torch.cuda.is_available() else "cpu"
 
+    def process_fn(
+        self, batch: Batch, buffer: ReplayBuffer, indices: np.ndarray
+    ) -> Batch:
+        if self._recompute_adv:
+            # buffer input `buffer` and `indices` to be used in `learn()`.
+            self._buffer, self._indices = buffer, indices
+        batch = self._compute_returns(batch, buffer, indices)
+        batch.act = to_torch_as(batch.act, batch.v_s)
+        batch.act_noise = to_torch_as(batch.act_noise, batch.v_s)
+        print(batch.act.shape)
+        print(batch.act_noise.shape)
+        with torch.no_grad():
+            b = self(batch)
+            print(b.dist)
+            print(b.dist_2)
+            batch.logp_old = b.dist.log_prob(batch.act) * b.dist_2.log_prob(batch.act_noise)
+            print(batch.logp_old.shape)
+        return batch
+
+
     # modified
     def learn(  # type: ignore
         self, batch: Batch, batch_size: int, repeat: int, **kwargs: Any
@@ -37,7 +58,14 @@ class myPPOPolicy(PPOPolicy):
                 batch = self._compute_returns(batch, self._buffer, self._indices)
             for minibatch in batch.split(batch_size, merge_last=True):
                 # calculate loss for actor
-                dist = self(minibatch).dist
+                b = self(minibatch)
+                dist = b.dist
+                dist_2 = b.dist_2
+                print(dist)
+                print(dist_2)
+                print(minibatch.act.shape)
+                print(minibatch.act_noise.shape)
+                print(minibatch.logp_old.shape)
                 if self._norm_adv:
                     mean, std = minibatch.adv.mean(), minibatch.adv.std()
                     minibatch.adv = (minibatch.adv - mean) / (
@@ -46,7 +74,7 @@ class myPPOPolicy(PPOPolicy):
 
                 ratio = (
                     (
-                        dist.log_prob(torch.unsqueeze(minibatch.act, 1))
+                        dist_2.log_prob(torch.unsqueeze(minibatch.act_noise, 1)) * dist.log_prob(torch.unsqueeze(minibatch.act, 1))
                         - minibatch.logp_old  # modified
                     )
                     .exp()
@@ -76,7 +104,7 @@ class myPPOPolicy(PPOPolicy):
                 else:
                     vf_loss = (minibatch.returns - value).pow(2).mean()
                 # calculate regularization and overall loss
-                ent_loss = dist.entropy().mean()
+                ent_loss = dist.entropy().mean() + dist_2.entropy().mean()
                 loss = (
                     clip_loss + self._weight_vf * vf_loss - self._weight_ent * ent_loss
                 )
@@ -139,7 +167,7 @@ class myPPOPolicy(PPOPolicy):
 
         # set logit for each agent
         logits = torch.empty(
-            [num_agents, training_num, num_actions], device=self.device
+            [num_agents, training_num, num_actions+2], device=self.device
         )
         state_ret = None
         for i in range(num_agents):
@@ -168,25 +196,38 @@ class myPPOPolicy(PPOPolicy):
                 state_ret["hidden"][:, (i,)] = _state["hidden"]
                 state_ret["cell"][:, (i,)] = _state["cell"]
         logits = logits.transpose(1, 0)
+        logits_act = logits[:,:,0:5]
+        logits_noise = (logits[:,:,5], logits[:,:,6])
 
-        if isinstance(logits, tuple):
-            dist = self.dist_fn(*logits)
+        def dist_2_fn(*logits):
+            return Independent(Normal(*logits), 1)
+
+        if isinstance(logits_act, tuple):
+            dist = self.dist_fn(*logits_act)
         else:
-            dist = self.dist_fn(logits)
+            dist = self.dist_fn(logits_act)
+        if isinstance(logits_noise, tuple):
+            dist_2 = dist_2_fn(*logits_noise)
+        else:
+            dist_2 = dist_2_fn(logits_noise)
+
         if self._deterministic_eval and not self.training:
-            if self.action_type == "discrete":
-                act = logits.argmax(-1)
-            elif self.action_type == "continuous":
-                act = logits[0]
+            act= logits_act.argmax(-1)
+            act_noise = logits_noise[0]
         else:
-            act = dist.sample()
+            act= dist.sample()
+            act_noise = dist_2.sample()
 
         # encode action from [num_agent] to int]
         act = to_numpy(act)
         for i in range(num_agents):
             act_ = act_ + bases * act[:, i]
             bases = bases // num_actions
-        return Batch(logits=logits, act=act_, state=state_ret, dist=dist)
+        act_noise = to_numpy(act_noise)
+        act_ = np.concatenate((act_[:, None],act_noise ),1)
+        # act_ shape = btz, 6 -> 6 = 1 + 5, combined act + noise for 0..4
+        # logits shape = btz, agent, 7 -> 7 = 5 + 2, logit for act + (mean, sig) for noise
+        return Batch(logits=logits, act=act_, state=state_ret, dist=dist, dist_2=dist_2)
 
     # from base.py
     def update(
@@ -222,9 +263,8 @@ class myPPOPolicy(PPOPolicy):
                 act = act % b
             return np.array(converted_act, dtype=int).transpose()
 
-        buffer_act = action(buffer.act)
-        batch_act = action(batch.act)
-
+        buffer_act = action(buffer.act[:, 0])
+        batch_act = action(batch.act[:, 0])
         losses, clip_losses, vf_losses, ent_losses = [], [], [], []
         for i in range(num_agents):
             _buffer_batch = Batch(
@@ -235,7 +275,8 @@ class myPPOPolicy(PPOPolicy):
                 terminated=buffer.terminated,
                 truncated=buffer.truncated,
                 obs_next=np.expand_dims(buffer.obs_next[:, i], axis=1),
-                act=buffer_act[:, i],
+                act = np.expand_dims(buffer_act[:, i], axis=1),
+                act_noise = np.expand_dims(buffer.act[:, i+1], axis=1)
             )
             _buffer = ReplayBuffer(
                 size=buffer.maxsize,
@@ -266,7 +307,9 @@ class myPPOPolicy(PPOPolicy):
                     else batch.obs_next[:, i],
                     axis=1,
                 ),
-                act=batch_act[:, i],
+
+                act = np.expand_dims(batch_act[:, i], axis=1),
+                act_noise = np.expand_dims(batch.act[:, i+1], axis=1)
             )
             _batch = self.process_fn(_batch, _buffer, indices)
             (losses_, clip_losses_, vf_losses_, ent_losses_) = self.learn(

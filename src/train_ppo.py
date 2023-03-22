@@ -28,6 +28,7 @@ import sys
 import datetime
 
 from pursuit_msg.policy.myppo import myPPOPolicy
+from pursuit_msg.policy.msgnet import msgnet
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -170,14 +171,14 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
     train_envs.seed(args.seed)
     test_envs.seed(args.seed)
     # model
-    net = Net(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
+    net = msgnet(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
     if torch.cuda.is_available() and False: # always don't use DataParallelNet until multi-gpu is configured
         actor = DataParallelNet(
             Actor(net, args.action_shape, device=None).to(args.device)
         )
         critic = DataParallelNet(Critic(net, device=None).to(args.device))
     else:
-        actor = Actor(net, args.action_shape, device=args.device).to(args.device)
+        actor = Actor(net, args.action_shape+2, device=args.device).to(args.device)
         critic = Critic(net, device=args.device).to(args.device)
     actor_critic = ActorCritic(actor, critic)
     # orthogonal initialization
