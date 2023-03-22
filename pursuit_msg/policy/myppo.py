@@ -37,16 +37,16 @@ class myPPOPolicy(PPOPolicy):
         batch = self._compute_returns(batch, buffer, indices)
         batch.act = to_torch_as(batch.act, batch.v_s)
         batch.act_noise = to_torch_as(batch.act_noise, batch.v_s)
-        print(batch.act.shape)
-        print(batch.act_noise.shape)
         with torch.no_grad():
             b = self(batch)
+            print(batch.act.shape)
+            print(batch.act_noise.shape)
             print(b.dist)
             print(b.dist_2)
-            batch.logp_old = b.dist.log_prob(batch.act) * b.dist_2.log_prob(batch.act_noise)
-            print(batch.logp_old.shape)
+            print(b.dist.log_prob(torch.unsqueeze(batch.act,1)).shape)
+            print(b.dist_2.log_prob(batch.act_noise).shape)
+            batch.logp_old = b.dist.log_prob(torch.unsqueeze(batch.act,1)) * b.dist_2.log_prob(batch.act_noise)
         return batch
-
 
     # modified
     def learn(  # type: ignore
@@ -74,12 +74,15 @@ class myPPOPolicy(PPOPolicy):
 
                 ratio = (
                     (
-                        dist_2.log_prob(torch.unsqueeze(minibatch.act_noise, 1)) * dist.log_prob(torch.unsqueeze(minibatch.act, 1))
+                        dist_2.log_prob(torch.unsqueeze(minibatch.act_noise, 1)) * dist.log_prob(minibatch.act, 1)
                         - minibatch.logp_old  # modified
                     )
                     .exp()
                     .float()
                 )
+                print(ratio.shape)
+                import sys
+                sys.exit()
                 ratio = ratio.reshape(ratio.size(0), -1).transpose(0, 1)
                 surr1 = ratio * minibatch.adv
                 surr2 = (
@@ -275,7 +278,7 @@ class myPPOPolicy(PPOPolicy):
                 terminated=buffer.terminated,
                 truncated=buffer.truncated,
                 obs_next=np.expand_dims(buffer.obs_next[:, i], axis=1),
-                act = np.expand_dims(buffer_act[:, i], axis=1),
+                act = buffer_act[:, i],
                 act_noise = np.expand_dims(buffer.act[:, i+1], axis=1)
             )
             _buffer = ReplayBuffer(
@@ -307,8 +310,7 @@ class myPPOPolicy(PPOPolicy):
                     else batch.obs_next[:, i],
                     axis=1,
                 ),
-
-                act = np.expand_dims(batch_act[:, i], axis=1),
+                act = batch_act[:, i],
                 act_noise = np.expand_dims(batch.act[:, i+1], axis=1)
             )
             _batch = self.process_fn(_batch, _buffer, indices)
