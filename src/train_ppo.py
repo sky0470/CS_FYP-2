@@ -28,6 +28,7 @@ import sys
 import datetime
 
 from pursuit_msg.policy.myppo import myPPOPolicy
+from pursuit_msg.policy.msgnet import MsgNet
 
 def get_args():
     parser = argparse.ArgumentParser()

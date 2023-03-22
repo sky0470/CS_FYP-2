@@ -23,6 +23,7 @@ import sys
 import datetime
 
 from pursuit_msg.policy.myppo import myPPOPolicy
+from pursuit_msg.policy.msgnet import MsgNet
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -97,6 +98,10 @@ def test_ppo(args=get_args()):
         from pursuit_msg.pursuit import my_parallel_env_message as my_env
     elif args.env == "grid-loc":
         from pursuit_msg.pursuit import my_parallel_env_grid_loc as my_env
+    elif args.env == "full":
+        from pursuit_msg.pursuit import my_parallel_env_full as my_env
+    elif args.env == "ic3":
+        from pursuit_msg.pursuit import my_parallel_env_ic3 as my_env
     else:
         raise NotImplementedError(f"env '{args.env}' is not implemented")
 
@@ -121,6 +126,7 @@ def test_ppo(args=get_args()):
 
     # model
     net = Net(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
+    # net = Net(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
     if torch.cuda.is_available():
         actor = DataParallelNet(
             Actor(net, args.action_shape, device=None).to(args.device)
