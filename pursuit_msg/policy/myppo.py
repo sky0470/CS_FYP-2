@@ -27,6 +27,19 @@ class myPPOPolicy(PPOPolicy):
         self.bases_arr = self.num_actions ** np.arange(num_agents - 1, -1, -1)
         self.device = device # "cuda" if torch.cuda.is_available() else "cpu"
 
+    def process_fn(
+        self, batch: Batch, buffer: ReplayBuffer, indices: np.ndarray
+    ) -> Batch:
+        if self._recompute_adv:
+            # buffer input `buffer` and `indices` to be used in `learn()`.
+            self._buffer, self._indices = buffer, indices
+        batch = self._compute_returns(batch, buffer, indices)
+        batch.act = to_torch_as(batch.act, batch.v_s)
+        with torch.no_grad():
+            # batch.logp_old = self(batch).dist.log_prob(batch.act)
+            batch.logp_old = self(batch).dist.log_prob(torch.unsqueeze(batch.act,1))
+        return batch
+
     # modified
     def learn(  # type: ignore
         self, batch: Batch, batch_size: int, repeat: int, **kwargs: Any
