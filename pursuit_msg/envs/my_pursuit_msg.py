@@ -86,7 +86,7 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
         # obs_mean = np.repeat(obs_mean[np.newaxis, :], obs.shape[0], axis=0)
         # observations = np.swapaxes(np.stack([obs, obs_mean]), 0, 1)
 
-        dist = np.array([[self.cal_dist(o, obs[i]) for o in obs] for i in range(obs.shape[0])])
+        dist = np.array([[-1 if i==j else self.cal_dist(o, obs[i]) for (j, o) in enumerate(obs)] for i in range(obs.shape[0])])
         order = dist.argsort()
         observations = np.array([obs[order[i]] for i in range(obs.shape[0])])
 
