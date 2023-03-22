@@ -16,6 +16,9 @@ import numpy as np
 
 from .my_pursuit import aec_to_parallel_wrapper
 
+import wandb
+import random
+
 SEED = 42
 
 ActionType = Optional[int]
@@ -90,8 +93,11 @@ class aec_to_parallel_wrapper_noise(aec_to_parallel_wrapper):
             return observations, infos
 
     def step(self, actions):
-        noise = actions[:,1]
-        actions = actions[:, 0].astype(int)
+        (actions, noise, prev_obs) = actions
+        if wandb.run is not None and random.randint(0,100)==0:
+            wandb.log({"noise": noise.mean()})
+        actions = actions.astype(int)
+        prev_obs = prev_obs.reshape([5,3,3,5])
         actions = dict(zip(self.aec_env.agents, actions))
 
         rewards = defaultdict(int)
@@ -130,7 +136,8 @@ class aec_to_parallel_wrapper_noise(aec_to_parallel_wrapper):
         self.agents = self.aec_env.agents
 
         obs = np.array(list(observations.values()))
-        obs_noise = (obs.T + noise - 0.5).T
+        obs_noise = (prev_obs.T + noise - 0.5).T # add old noise to old obs
+        # obs_noise = (obs.T + noise - 0.5).T # add old noise to new obs
         dist = np.array([[-1 if i==j else self.cal_dist(o, obs[i]) for (j, o) in enumerate(obs)] for i in range(obs.shape[0])])
         order = dist.argsort()
         observations = np.array([np.vstack((obs[i][None,:], obs_noise[order[i][1:]])) for i in range( obs.shape[0])])

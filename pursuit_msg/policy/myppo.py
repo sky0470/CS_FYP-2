@@ -213,7 +213,7 @@ class myPPOPolicy(PPOPolicy):
             act_ = act_ + bases * act[:, i]
             bases = bases // num_actions
         act_noise = to_numpy(act_noise)
-        act_ = np.concatenate((act_[:, None],act_noise ),1)
+        act_ = np.concatenate((act_[:, None],act_noise, batch.obs[:, :, 0].reshape(batch.obs.shape[0], -1) ),1)
         # act_ shape = btz, 6 -> 6 = 1 + 5, combined act + noise for 0..4
         # logits shape = btz, agent, 7 -> 7 = 5 + 2, logit for act + (mean, sig) for noise
         return Batch(logits=logits, act=act_, state=state_ret, dist=dist, dist_2=dist_2)
