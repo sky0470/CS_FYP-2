@@ -39,13 +39,7 @@ class myPPOPolicy(PPOPolicy):
         batch.act_noise = to_torch_as(batch.act_noise, batch.v_s)
         with torch.no_grad():
             b = self(batch)
-            print(batch.act.shape)
-            print(batch.act_noise.shape)
-            print(b.dist)
-            print(b.dist_2)
-            print(b.dist.log_prob(torch.unsqueeze(batch.act,1)).shape)
-            print(b.dist_2.log_prob(batch.act_noise).shape)
-            batch.logp_old = b.dist.log_prob(torch.unsqueeze(batch.act,1)) * b.dist_2.log_prob(batch.act_noise)
+            batch.logp_old = b.dist.log_prob(torch.unsqueeze(batch.act,1)) * torch.unsqueeze(b.dist_2.log_prob(batch.act_noise),1)
         return batch
 
     # modified
@@ -61,11 +55,6 @@ class myPPOPolicy(PPOPolicy):
                 b = self(minibatch)
                 dist = b.dist
                 dist_2 = b.dist_2
-                print(dist)
-                print(dist_2)
-                print(minibatch.act.shape)
-                print(minibatch.act_noise.shape)
-                print(minibatch.logp_old.shape)
                 if self._norm_adv:
                     mean, std = minibatch.adv.mean(), minibatch.adv.std()
                     minibatch.adv = (minibatch.adv - mean) / (
@@ -74,15 +63,12 @@ class myPPOPolicy(PPOPolicy):
 
                 ratio = (
                     (
-                        dist_2.log_prob(torch.unsqueeze(minibatch.act_noise, 1)) * dist.log_prob(minibatch.act, 1)
+                        dist.log_prob(torch.unsqueeze(minibatch.act, 1)) * torch.unsqueeze(dist_2.log_prob(minibatch.act_noise),1)
                         - minibatch.logp_old  # modified
                     )
                     .exp()
                     .float()
                 )
-                print(ratio.shape)
-                import sys
-                sys.exit()
                 ratio = ratio.reshape(ratio.size(0), -1).transpose(0, 1)
                 surr1 = ratio * minibatch.adv
                 surr2 = (
@@ -200,7 +186,7 @@ class myPPOPolicy(PPOPolicy):
                 state_ret["cell"][:, (i,)] = _state["cell"]
         logits = logits.transpose(1, 0)
         logits_act = logits[:,:,0:5]
-        logits_noise = (logits[:,:,5], logits[:,:,6])
+        logits_noise = (logits[:,:,5], logits[:,:,6].exp())
 
         def dist_2_fn(*logits):
             return Independent(Normal(*logits), 1)
@@ -279,7 +265,8 @@ class myPPOPolicy(PPOPolicy):
                 truncated=buffer.truncated,
                 obs_next=np.expand_dims(buffer.obs_next[:, i], axis=1),
                 act = buffer_act[:, i],
-                act_noise = np.expand_dims(buffer.act[:, i+1], axis=1)
+                act_noise = buffer.act[:, i+1],
+                #act_noise = np.expand_dims(buffer.act[:, i+1], axis=1)
             )
             _buffer = ReplayBuffer(
                 size=buffer.maxsize,
@@ -311,7 +298,8 @@ class myPPOPolicy(PPOPolicy):
                     axis=1,
                 ),
                 act = batch_act[:, i],
-                act_noise = np.expand_dims(batch.act[:, i+1], axis=1)
+                # act_noise = np.expand_dims(batch.act[:, i+1], axis=1)
+                act_noise = batch.act[:, i+1],
             )
             _batch = self.process_fn(_batch, _buffer, indices)
             (losses_, clip_losses_, vf_losses_, ent_losses_) = self.learn(
