@@ -21,7 +21,7 @@ from tianshou.utils.net.common import MLP
 
 ModuleType = Type[nn.Module]
 
-class msgnet(nn.Module):
+class MsgNet(nn.Module):
 
     def __init__(
         self,
