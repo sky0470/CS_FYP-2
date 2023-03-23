@@ -69,16 +69,16 @@ class MsgNet(nn.Module):
         if self.device is not None:
             obs = torch.as_tensor(obs, device=self.device, dtype=torch.float32)
             obs = obs.squeeze()
-        if obs.ndim==4:
+        if obs.ndim == 4: # dim of obs: (n_pursuers, obs_range, obs_range, channels)
             pre = torch.stack([self.pre(obs[i].unsqueeze(0)) for i in range(1, obs.shape[0])],1)
             obs_ = torch.cat((obs[0].flatten(), pre.flatten()))
             obs_ = obs_.unsqueeze(0)
-        elif obs.ndim==5:
+        elif obs.ndim == 5: # dim of obs: (train_num, n_pursuers, obs_range, obs_range, channels)
             pre = torch.stack([self.pre(obs[:, i]) for i in range(1, obs.shape[1])], 1)
             obs_ = torch.cat((obs[:, 0].flatten(1), pre.flatten(1)), 1)
         else:
-            pre = torch.stack([self.pre(obs[:,:, i]) for i in range(1, obs.shape[2])], 2)
-            obs_ = torch.cat((obs[:,:, 0].flatten(2), pre.flatten(2)), 2)
+            pre = torch.stack([self.pre(obs[:, :, i]) for i in range(1, obs.shape[2])], 2)
+            obs_ = torch.cat((obs[:, :, 0].flatten(2), pre.flatten(2)), 2)
         logits = self.model(obs_)
         bsz = logits.shape[0]
         if self.softmax:
