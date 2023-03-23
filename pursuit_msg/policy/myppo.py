@@ -199,6 +199,7 @@ class myPPOPolicy(PPOPolicy):
         for i in range(num_agents):
             act_ = act_ + bases * act[:, i]
             bases = bases // num_actions
+        act_ = np.concatenate((act_[:, None], batch.obs[:, :, 0].reshape(batch.obs.shape[0], -1) ),1)
         return Batch(logits=logits, act=act_, state=state_ret, dist=dist)
 
     # from base.py
@@ -235,9 +236,8 @@ class myPPOPolicy(PPOPolicy):
                 act = act % b
             return np.array(converted_act, dtype=int).transpose()
 
-        buffer_act = action(buffer.act)
-        batch_act = action(batch.act)
-
+        buffer_act = action(buffer.act[:, 0])
+        batch_act = action(batch.act[:, 0])
         losses, clip_losses, vf_losses, ent_losses = [], [], [], []
         for i in range(num_agents):
             _buffer_batch = Batch(
@@ -248,7 +248,7 @@ class myPPOPolicy(PPOPolicy):
                 terminated=buffer.terminated,
                 truncated=buffer.truncated,
                 obs_next=np.expand_dims(buffer.obs_next[:, i], axis=1),
-                act=buffer_act[:, i],
+                act = buffer_act[:, i],
             )
             _buffer = ReplayBuffer(
                 size=buffer.maxsize,
@@ -279,7 +279,7 @@ class myPPOPolicy(PPOPolicy):
                     else batch.obs_next[:, i],
                     axis=1,
                 ),
-                act=batch_act[:, i],
+                act = batch_act[:, i],
             )
             _batch = self.process_fn(_batch, _buffer, indices)
             (losses_, clip_losses_, vf_losses_, ent_losses_) = self.learn(
