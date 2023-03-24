@@ -22,7 +22,7 @@ obs_tensor = torch.from_numpy(obs)
 def expand(trial=10000):
     b = []
     for i in range(trial):
-        a = np.expand_dims(obs[:, i%7], axis=1)
+        a = np.expand_dims(obs_tensor[:, i%7], axis=1)
         b.append(a)
 
     return b
@@ -31,7 +31,7 @@ def expand(trial=10000):
 def np_newaxis(trial=10000):
     b = []
     for i in range(trial):
-        a = obs[:, np.newaxis, i%7]
+        a = obs_tensor[:, np.newaxis, i%7]
         b.append(a)
 
     return b
@@ -40,7 +40,7 @@ def np_newaxis(trial=10000):
 def np_none(trial=10000):
     b = []
     for i in range(trial):
-        a = obs[:, None, i%7]
+        a = obs_tensor[:, None, i%7]
         b.append(a)
 
     return b
@@ -58,7 +58,7 @@ def torch_unsqueeze(trial=10000):
 def direct(trial=10000):
     b = []
     for i in range(trial):
-        a = obs[:, (i%7,)]
+        a = obs_tensor[:, (i%7,)]
         b.append(a)
 
     return b
