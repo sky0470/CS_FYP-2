@@ -39,7 +39,8 @@ class myPPOPolicy(PPOPolicy):
         batch.act_noise = to_torch_as(batch.act_noise, batch.v_s)
         with torch.no_grad():
             b = self(batch)
-            batch.logp_old = b.dist.log_prob(torch.unsqueeze(batch.act,1)) * torch.unsqueeze(b.dist_2.log_prob(batch.act_noise),1)
+            batch.logp_old = b.dist.log_prob(torch.unsqueeze(batch.act, 1)) \
+                + b.dist_2.log_prob(torch.unsqueeze(batch.act_noise, 1))
         return batch
 
     # modified
@@ -63,7 +64,8 @@ class myPPOPolicy(PPOPolicy):
 
                 ratio = (
                     (
-                        dist.log_prob(torch.unsqueeze(minibatch.act, 1)) * torch.unsqueeze(dist_2.log_prob(minibatch.act_noise),1)
+                        dist.log_prob(torch.unsqueeze(minibatch.act, 1)) \
+                            + dist_2.log_prob(torch.unsqueeze(minibatch.act_noise, 1))
                         - minibatch.logp_old  # modified
                     )
                     .exp()
@@ -185,11 +187,12 @@ class myPPOPolicy(PPOPolicy):
                 state_ret["hidden"][:, (i,)] = _state["hidden"]
                 state_ret["cell"][:, (i,)] = _state["cell"]
         logits = logits.transpose(1, 0)
-        logits_act = logits[:,:,0:5]
-        logits_noise = (logits[:,:,5], logits[:,:,6].exp())
+        logits_act = logits[:, :, 0:5]
+        logits_noise = (logits[:, :, 5], torch.clamp(logits[:, :, 6].exp(), min=0.3, max=2))
 
         def dist_2_fn(*logits):
-            return Independent(Normal(*logits), 1)
+            normal = Normal(*logits)
+            return normal
 
         if isinstance(logits_act, tuple):
             dist = self.dist_fn(*logits_act)
@@ -201,10 +204,10 @@ class myPPOPolicy(PPOPolicy):
             dist_2 = dist_2_fn(logits_noise)
 
         if self._deterministic_eval and not self.training:
-            act= logits_act.argmax(-1)
+            act = logits_act.argmax(-1)
             act_noise = logits_noise[0]
         else:
-            act= dist.sample()
+            act = dist.sample()
             act_noise = dist_2.sample()
 
         # encode action from [num_agent] to int]
@@ -213,7 +216,7 @@ class myPPOPolicy(PPOPolicy):
             act_ = act_ + bases * act[:, i]
             bases = bases // num_actions
         act_noise = to_numpy(act_noise)
-        act_ = np.concatenate((act_[:, None],act_noise, batch.obs[:, :, 0].reshape(batch.obs.shape[0], -1) ),1)
+        act_ = np.concatenate((act_[:, None], act_noise, batch.obs[:, :, 0].reshape(batch.obs.shape[0], -1) ),1)
         # act_ shape = btz, 6 -> 6 = 1 + 5, combined act + noise for 0..4
         # logits shape = btz, agent, 7 -> 7 = 5 + 2, logit for act + (mean, sig) for noise
         return Batch(logits=logits, act=act_, state=state_ret, dist=dist, dist_2=dist_2)
