@@ -29,7 +29,7 @@ import datetime
 
 from pursuit_msg.policy.myppo import myPPOPolicy
 from pursuit_msg.net.msgnet import msgnet
-from pursuit_msg.net.actor import NoisyActor
+from pursuit_msg.net.noisy_actor import NoisyActor
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -112,6 +112,7 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
 
     # switch env
     print(f"env: {args.env}")
+    filter_noise = False
     if args.env is None:
         from pursuit_msg.pursuit import my_parallel_env as my_env
     elif args.env == "msg":
@@ -124,6 +125,7 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         from pursuit_msg.pursuit import my_parallel_env_ic3 as my_env
     elif args.env == 'noise':
         from pursuit_msg.pursuit import my_parallel_env_noise as my_env
+        filter_noise = True
     else:
         raise NotImplementedError(f"env '{args.env}' is not implemented")
 
@@ -181,7 +183,7 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         )
         critic = DataParallelNet(Critic(net, device=None).to(args.device))
     else:
-        actor = NoisyActor(net, args.action_shape+2, device=args.device, filter_noise=True).to(args.device)
+        actor = NoisyActor(net, args.action_shape+2, device=args.device, filter_noise=filter_noise).to(args.device)
         critic = Critic(net, device=args.device).to(args.device)
     actor_critic = ActorCritic(actor, critic)
     # orthogonal initialization
