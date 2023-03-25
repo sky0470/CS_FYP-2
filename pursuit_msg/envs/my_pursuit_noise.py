@@ -94,8 +94,6 @@ class aec_to_parallel_wrapper_noise(aec_to_parallel_wrapper):
 
     def step(self, actions):
         (actions, noise, prev_obs) = actions
-        if wandb.run is not None and random.randint(0,100)==0:
-            wandb.log({"noise": noise.mean()})
         actions = actions.astype(int)
         prev_obs = prev_obs.reshape([5,3,3,5])
         actions = dict(zip(self.aec_env.agents, actions))
@@ -140,7 +138,8 @@ class aec_to_parallel_wrapper_noise(aec_to_parallel_wrapper):
         # obs_noise = (obs.T + noise - 0.5).T # add old noise to new obs
         dist = np.array([[-1 if i==j else self.cal_dist(o, obs[i]) for (j, o) in enumerate(obs)] for i in range(obs.shape[0])])
         order = dist.argsort()
-        observations = np.array([np.vstack((obs[i][None,:], obs_noise[order[i][1:]])) for i in range( obs.shape[0])])
+        observations = np.array([np.vstack((obs[i][None,:], obs[order[i][1:]])) for i in range(obs.shape[0])])
+        # observations = np.array([np.vstack((obs[i][None,:], obs_noise[order[i][1:]])) for i in range(obs.shape[0])])
 
         rewards = np.array(list(rewards.values()))  # for CTDE
         # rewards = np.array(list(rewards.values())).sum() # for centralized
