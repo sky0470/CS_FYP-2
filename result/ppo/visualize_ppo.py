@@ -173,7 +173,11 @@ def test_ppo(args=get_args()):
 
         envs = DummyVectorEnv(
             [
-                lambda: my_env(render_mode="human", **task_parameter),
+                lambda: my_env(render_mode="human", 
+                               render_vdo_path=args.logdir, 
+                               **task_parameter),
+                            
+                               
             ]
         )
         envs.seed(args.seed)
@@ -181,8 +185,9 @@ def test_ppo(args=get_args()):
         policy.eval()
         collector = Collector(policy, envs)
         result = collector.collect(n_episode=10, render=args.render)
-        rews, lens = result["rews"], result["lens"]
-        print(f"Final reward: {rews.mean()}, length: {lens.mean()}")
+        pprint.pprint(result)
+        # rews, lens = result["rews"], result["lens"]
+        # print(f"Final reward: {rews.mean()}, length: {lens.mean()}")
 
 
 if __name__ == "__main__":

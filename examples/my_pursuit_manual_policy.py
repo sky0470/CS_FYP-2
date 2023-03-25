@@ -103,7 +103,7 @@ if __name__ == "__main__":
                 actions.append(4)
 
         bases = 5 ** (num_agents - 1)
-        acttions = np.array(actions)
+        # actions = np.array(actions)
         actions_ = 0
         for i in range(num_agents):
             actions_ = actions_ + bases * actions[i]
@@ -115,5 +115,5 @@ if __name__ == "__main__":
         print(obs[0,:,:,1], end='\n\n')
         print(obs[0,:,:,2], end='\n\n')
         print('-'*20)
-        tmp = input()
+        # tmp = input()
     env.close()
