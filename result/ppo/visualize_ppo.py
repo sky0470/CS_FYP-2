@@ -66,6 +66,8 @@ def get_args():
     # switch env
     parser.add_argument('--env', type=str, default=None)
 
+    # visualize special
+    parser.add_argument("--n_episode", type=int, default=10)
     args = parser.parse_args()
     return args
 
@@ -184,7 +186,7 @@ def test_ppo(args=get_args()):
 
         policy.eval()
         collector = Collector(policy, envs)
-        result = collector.collect(n_episode=10, render=args.render)
+        result = collector.collect(n_episode=args.n_episode, render=args.render)
         pprint.pprint(result)
         # rews, lens = result["rews"], result["lens"]
         # print(f"Final reward: {rews.mean()}, length: {lens.mean()}")

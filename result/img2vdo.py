@@ -25,7 +25,7 @@ if __name__ == "__main__":
     frame_size = (img.shape[1] + border_size * 2, img.shape[0] + border_size * 2)
     path_vdo = os.path.join(args.path, args.vdo_name)
     out = cv2.VideoWriter(path_vdo,
-                          cv2.VideoWriter_fourcc(*'mp4v'), 
+                          cv2.VideoWriter_fourcc(*'h264'), 
                           args.fps, 
                           frame_size)
 
@@ -38,4 +38,4 @@ if __name__ == "__main__":
 
     out.release()
 
-    print(f"Done, video location: {path_vdo} (frame_size: {frame_size})")
+    print(f"Done, video location: {path_vdo} (frame_size: {frame_size}, fps: {args.fps})")
