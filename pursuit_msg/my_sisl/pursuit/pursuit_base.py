@@ -330,7 +330,7 @@ class Pursuit:
             self.pixel_scale * x + self.pixel_scale // 3,
             self.pixel_scale * y + self.pixel_scale // 3
         )
-        text = font_small.render(f"FPS:{self.clock.get_fps():.2f}", False, (255, 255, 255))
+        text = font_small.render(f"Frame #{self.frames} FPS:{self.clock.get_fps():.2f}", False, (255, 255, 255))
         self.screen.blit(text, (pos_x, pos_y))
 
     def draw_model_state(self):
