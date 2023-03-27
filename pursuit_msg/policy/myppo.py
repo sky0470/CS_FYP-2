@@ -188,7 +188,7 @@ class myPPOPolicy(PPOPolicy):
                 state_ret["cell"][:, (i,)] = _state["cell"]
         logits = logits.transpose(1, 0)
         logits_act = logits[:, :, 0:5]
-        logits_noise = (logits[:, :, 5], torch.clamp(logits[:, :, 6].exp(), min=-0.5, max=0.5))
+        logits_noise = (logits[:, :, 5], torch.clamp(logits[:, :, 6], min=-1.6, max=-0.5).exp())
 
         def dist_2_fn(*logits):
             normal = Normal(*logits)
