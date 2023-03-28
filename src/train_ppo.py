@@ -30,6 +30,7 @@ import datetime
 from pursuit_msg.policy.myppo import myPPOPolicy
 from pursuit_msg.net.msgnet import msgnet
 from pursuit_msg.net.noisy_actor import NoisyActor
+from pursuit_msg.pursuit import __version__ as env_version
 
 from pursuit_msg.my_collector import MyCollector
 
@@ -234,6 +235,7 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         task_parameter=task_parameter,
         train_datetime=train_datetime,
         log_path=log_path,
+        env_version=env_version,
     )
     logger = WandbLogger(project="pursuit_ppo" if not args.quick else "pursuit_test", 
                          entity="csfyp", 
