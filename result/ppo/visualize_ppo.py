@@ -21,6 +21,7 @@ from tianshou.utils.net.discrete import Actor, Critic
 
 import sys
 import datetime
+import json
 
 from pursuit_msg.policy.myppo import myPPOPolicy
 from pursuit_msg.policy.msgnet import MsgNet
@@ -179,7 +180,7 @@ def test_ppo(args=get_args()):
             cnt = 0
             while os.path.exists(render_vdo_path):
                 cnt += 1
-                render_vdo_path = f"{render_vdo_path}-{cnt}"
+                render_vdo_path = f"{args.logdir}-{cnt}"
             os.makedirs(render_vdo_path)
 
         envs = DummyVectorEnv(
@@ -195,6 +196,12 @@ def test_ppo(args=get_args()):
         collector = Collector(policy, envs)
         result = collector.collect(n_episode=args.n_episode, render=args.render)
         pprint.pprint(result)
+
+        result_json = {
+            k: v.tolist() if isinstance(v, np.ndarray) else v for k, v in result.items() 
+        }
+        with open(os.path.join(render_vdo_path, "summary.json"), "w") as f:
+            json.dump(result_json, f, indent=4)
         # rews, lens = result["rews"], result["lens"]
         # print(f"Final reward: {rews.mean()}, length: {lens.mean()}")
 
