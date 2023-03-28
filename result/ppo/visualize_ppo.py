@@ -175,11 +175,11 @@ def test_ppo(args=get_args()):
 
         render_vdo_path = args.logdir
         if render_vdo_path:
-            cnt = 0
             # find first unused number
-            while os.path.exists(f"{render_vdo_path}-{cnt}"):
+            cnt = 0
+            while os.path.exists(render_vdo_path):
                 cnt += 1
-            render_vdo_path = f"{render_vdo_path}-{cnt}"
+                render_vdo_path = f"{render_vdo_path}-{cnt}"
             os.makedirs(render_vdo_path)
 
         envs = DummyVectorEnv(
