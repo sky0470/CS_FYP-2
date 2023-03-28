@@ -158,7 +158,7 @@ class myPPOPolicy(PPOPolicy):
 
         # set logit for each agent
         logits = torch.empty(
-            [num_agents, training_num, num_actions+2], device=self.device
+            [num_agents, training_num, num_actions + 2], device=self.device
         )
         state_ret = None
         for i in range(num_agents):
@@ -187,8 +187,12 @@ class myPPOPolicy(PPOPolicy):
                 state_ret["hidden"][:, (i,)] = _state["hidden"]
                 state_ret["cell"][:, (i,)] = _state["cell"]
         logits = logits.transpose(1, 0)
-        logits_act = logits[:, :, 0:5]
-        logits_noise = (logits[:, :, 5], torch.clamp(logits[:, :, 6], min=-3, max=-0.5).exp())
+        logits_act = logits[:, :, :num_actions]
+        has_noise = (logits.shape[-1] > num_actions) # last dim is output size
+        if has_noise:
+            logits_noise = (logits[:, :, num_actions], torch.clamp(logits[:, :, num_actions + 1], min=-3, max=-0.5).exp())
+        else:
+            logits_noise = None
 
         def dist_2_fn(*logits):
             normal = Normal(*logits)
@@ -198,6 +202,7 @@ class myPPOPolicy(PPOPolicy):
             dist = self.dist_fn(*logits_act)
         else:
             dist = self.dist_fn(logits_act)
+
         if isinstance(logits_noise, tuple):
             dist_2 = dist_2_fn(*logits_noise)
         else:
@@ -215,8 +220,9 @@ class myPPOPolicy(PPOPolicy):
         for i in range(num_agents):
             act_ = act_ + bases * act[:, i]
             bases = bases // num_actions
+
         act_noise = to_numpy(act_noise)
-        act_ = np.concatenate((act_[:, None], act_noise, batch.obs[:, :, 0].reshape(batch.obs.shape[0], -1) ),1)
+        act_ = np.concatenate((act_[:, None], act_noise, batch.obs[:, :, 0].reshape(batch.obs.shape[0], -1)), 1)
         # act_ shape = btz, 6 -> 6 = 1 + 5, combined act + noise for 0..4
         # logits shape = btz, agent, 7 -> 7 = 5 + 2, logit for act + (mean, sig) for noise
         return Batch(logits=logits, act=act_, state=state_ret, dist=dist, dist_2=dist_2)
