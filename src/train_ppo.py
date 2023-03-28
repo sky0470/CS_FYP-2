@@ -28,9 +28,8 @@ import sys
 import datetime
 
 from pursuit_msg.policy.myppo import myPPOPolicy
-from pursuit_msg.net.msgnet import msgnet
+from pursuit_msg.net.msgnet import MsgNet
 from pursuit_msg.net.noisy_actor import NoisyActor
-from pursuit_msg.pursuit import __version__ as env_version
 
 from pursuit_msg.my_collector import MyCollector
 
@@ -117,17 +116,17 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
     print(f"env: {args.env}")
     has_noise = False
     if args.env is None:
-        from pursuit_msg.pursuit import my_parallel_env as my_env
+        from pursuit_msg.pursuit import my_parallel_env as my_env, __version__ as env_version
     elif args.env == "msg":
-        from pursuit_msg.pursuit import my_parallel_env_message as my_env
+        from pursuit_msg.pursuit import my_parallel_env_message as my_env, __version__ as env_version
     elif args.env == "grid-loc":
-        from pursuit_msg.pursuit import my_parallel_env_grid_loc as my_env
+        from pursuit_msg.pursuit import my_parallel_env_grid_loc as my_env, __version__ as env_version
     elif args.env == "full":
-        from pursuit_msg.pursuit import my_parallel_env_full as my_env
+        from pursuit_msg.pursuit import my_parallel_env_full as my_env, __version__ as env_version
     elif args.env == "ic3":
-        from pursuit_msg.pursuit import my_parallel_env_ic3 as my_env
+        from pursuit_msg.pursuit import my_parallel_env_ic3 as my_env, __version__ as env_version
     elif args.env == 'noise':
-        from pursuit_msg.pursuit import my_parallel_env_noise as my_env
+        from pursuit_msg.pursuit import my_parallel_env_noise as my_env, __version__ as env_version
         has_noise = True
     else:
         raise NotImplementedError(f"env '{args.env}' is not implemented")
@@ -179,7 +178,7 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
     train_envs.seed(args.seed)
     test_envs.seed(args.seed)
     # model
-    net = msgnet(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
+    net = MsgNet(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
     if torch.cuda.is_available() and False: # always don't use DataParallelNet until multi-gpu is configured
         actor = DataParallelNet(
             Actor(net, args.action_shape, device=None).to(args.device)

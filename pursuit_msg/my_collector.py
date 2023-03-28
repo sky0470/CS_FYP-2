@@ -302,7 +302,7 @@ class MyCollector(object):
                 # update state / act / policy into self.data
                 policy = result.get("policy", Batch())
                 try:
-                    noise_mu, noise_sig = result["logits"][:, :, 5].cpu().numpy(), result["logits"][:, :, 6].cpu().numpy()
+                    noise_mu, noise_sig = result["logits"][:, :, 5].detach().cpu().numpy().astype("float"), result["logits"][:, :, 6].detach().cpu().numpy().astype("float")
                 except IndexError as e: # noise is not implemented
                     noise_mu, noise_sig = np.zeros(result["logits"].shape[:2]), np.zeros(result["logits"].shape[:2])
                 assert isinstance(policy, Batch)

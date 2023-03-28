@@ -1,5 +1,5 @@
 """
-code that train pursuit with dqn
+code that train pursuit with ppo
 code can compile for very small parameter but have not been tested in a full train
 """
 import argparse
@@ -21,8 +21,12 @@ from tianshou.utils.net.discrete import Actor, Critic
 
 import sys
 import datetime
+import json
 
 from pursuit_msg.policy.myppo import myPPOPolicy
+from pursuit_msg.net.msgnet import MsgNet
+from pursuit_msg.net.noisy_actor import NoisyActor
+from pursuit_msg.my_collector import MyCollector
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -62,9 +66,14 @@ def get_args():
     parser.add_argument("--dual-clip", type=float, default=None)
     parser.add_argument("--value-clip", type=int, default=0)
 
+    # task param
+    parser.add_argument('--catch-reward-ratio', type=float, nargs="+", default=None)
+
     # switch env
     parser.add_argument('--env', type=str, default=None)
 
+    # visualize special
+    parser.add_argument("--n_episode", type=int, default=10)
     args = parser.parse_args()
     return args
 
@@ -91,12 +100,20 @@ def test_ppo(args=get_args()):
 
     # switch env
     print(f"env: {args.env}")
+    has_noise = False
     if args.env is None:
         from pursuit_msg.pursuit import my_parallel_env as my_env
     elif args.env == "msg":
         from pursuit_msg.pursuit import my_parallel_env_message as my_env
     elif args.env == "grid-loc":
         from pursuit_msg.pursuit import my_parallel_env_grid_loc as my_env
+    elif args.env == "full":
+        from pursuit_msg.pursuit import my_parallel_env_full as my_env
+    elif args.env == "ic3":
+        from pursuit_msg.pursuit import my_parallel_env_ic3 as my_env
+    elif args.env == 'noise':
+        from pursuit_msg.pursuit import my_parallel_env_noise as my_env
+        has_noise = True
     else:
         raise NotImplementedError(f"env '{args.env}' is not implemented")
 
@@ -107,6 +124,9 @@ def test_ppo(args=get_args()):
     print(f"Seed is {args.seed}")
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
+
+    # set catch reward ratio
+    task_parameter["catch_reward_ratio"] = args.catch_reward_ratio if args.catch_reward_ratio is not None else [num for num in range(task_parameter["n_pursuers"] + 1)] 
 
     env = my_env(**task_parameter)
     args.state_shape = env.observation_space.shape or env.observation_space.n
@@ -120,17 +140,21 @@ def test_ppo(args=get_args()):
         )
 
     # model
-    net = Net(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
+    net = MsgNet(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
+    # net = Net(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
     if torch.cuda.is_available():
         actor = DataParallelNet(
             Actor(net, args.action_shape, device=None).to(args.device)
         )
         critic = DataParallelNet(Critic(net, device=None).to(args.device))
     else:
-        actor = Actor(net, args.action_shape, device=args.device).to(args.device)
+        if has_noise:
+            actor = NoisyActor(net, args.action_shape + 2, device=args.device, filter_noise=has_noise).to(args.device)
+        else:
+            actor = Actor(net, args.action_shape, device=args.device).to(args.device)
         critic = Critic(net, device=args.device).to(args.device)
     actor_critic = ActorCritic(actor, critic)
-    optim = torch.optim.Adam(actor_critic.parameters(), lr=args.lr)
+    
     # orthogonal initialization
     for m in actor_critic.modules():
         if isinstance(m, torch.nn.Linear):
@@ -141,6 +165,7 @@ def test_ppo(args=get_args()):
     policy = myPPOPolicy(
         num_agents=task_parameter["n_pursuers"],
         state_shape=args.state_shape,
+        device=args.device,
         actor=actor,
         critic=critic,
         optim=optim,
@@ -165,18 +190,36 @@ def test_ppo(args=get_args()):
         model = {k.replace(".net.module", ""): v for k, v in checkpoint.items()}
         policy.load_state_dict(model)
 
+        render_vdo_path = args.logdir
+        if render_vdo_path:
+            # find first unused number
+            cnt = 0
+            while os.path.exists(render_vdo_path):
+                cnt += 1
+                render_vdo_path = f"{args.logdir}-{cnt}"
+            os.makedirs(render_vdo_path)
+
         envs = DummyVectorEnv(
             [
-                lambda: my_env(render_mode="human", **task_parameter),
+                lambda: my_env(render_mode="human", 
+                               render_vdo_path=render_vdo_path, 
+                               **task_parameter),
             ]
         )
         envs.seed(args.seed)
 
         policy.eval()
-        collector = Collector(policy, envs)
-        result = collector.collect(n_episode=10, render=args.render)
-        rews, lens = result["rews"], result["lens"]
-        print(f"Final reward: {rews.mean()}, length: {lens.mean()}")
+        collector = MyCollector(policy, envs)
+        result = collector.collect(n_episode=args.n_episode, render=args.render)
+        pprint.pprint(result)
+
+        result_json = {
+            k: v.tolist() if isinstance(v, np.ndarray) else v for k, v in result.items() 
+        }
+        with open(os.path.join(render_vdo_path, "summary.json"), "w") as f:
+            json.dump(result_json, f, indent=4)
+        # rews, lens = result["rews"], result["lens"]
+        # print(f"Final reward: {rews.mean()}, length: {lens.mean()}")
 
 
 if __name__ == "__main__":
