@@ -31,6 +31,8 @@ from pursuit_msg.policy.myppo import myPPOPolicy
 from pursuit_msg.net.msgnet import msgnet
 from pursuit_msg.net.noisy_actor import NoisyActor
 
+from pursuit_msg.my_collector import MyCollector
+
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--task', type=str, default='pursuit_v4')
@@ -216,10 +218,10 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         recompute_advantage=args.recompute_adv
     )
     # collector
-    train_collector = Collector(
+    train_collector = MyCollector(
         policy, train_envs, VectorReplayBuffer(args.buffer_size, len(train_envs))
     )
-    test_collector = Collector(policy, test_envs)
+    test_collector = MyCollector(policy, test_envs)
     # train_collector.collect(n_step=args.batch_size * args.training_num)
     train_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     # log
