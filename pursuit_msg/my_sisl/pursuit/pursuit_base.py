@@ -182,13 +182,8 @@ class Pursuit:
 
         self.frames = 0
         self.maxfps = maxfps
-        if render_vdo_path:
-            cnt = 0
-            # find first unused number
-            while os.path.exists(f"{render_vdo_path}-{cnt}"):
-                cnt += 1
-            self.render_vdo_path = f"{render_vdo_path}-{cnt}"
-            os.makedirs(self.render_vdo_path)
+        self.render_vdo_path = render_vdo_path
+        self.render_cnt = 0
         self.reset()
 
     def observation_space(self, agent):
@@ -478,8 +473,13 @@ class Pursuit:
                 self.screen = pygame.Surface(
                     (self.pixel_scale * self.x_size, self.pixel_scale * self.y_size)
                 )
-
+            
             self.renderOn = True
+            self.render_cnt += 1
+            render_vdo_path = os.path.join(self.render_vdo_path, f"render-{self.render_cnt:02d}")
+            print(f"folder of rendered frames: {render_vdo_path}")
+            os.makedirs(render_vdo_path)
+
         if self.clock:
             self.clock.tick(self.maxfps)
         self.draw_model_state()
@@ -498,7 +498,7 @@ class Pursuit:
         if self.render_mode == "human":
             pygame.display.flip()
             if self.render_vdo_path:
-                pygame.image.save(self.screen, os.path.join(self.render_vdo_path, f"frame_{self.frames:03d}.png"))
+                pygame.image.save(self.screen, os.path.join(self.render_vdo_path, f"render-{self.render_cnt:02d}", f"frame_{self.frames:03d}.png"))
         return (
             np.transpose(new_observation, axes=(1, 0, 2))
             if self.render_mode == "rgb_array"

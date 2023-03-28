@@ -127,7 +127,7 @@ def test_ppo(args=get_args()):
         )
 
     # model
-    net = Net(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
+    net = MsgNet(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
     # net = Net(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
     if torch.cuda.is_available():
         actor = DataParallelNet(
@@ -173,13 +173,20 @@ def test_ppo(args=get_args()):
         model = {k.replace(".net.module", ""): v for k, v in checkpoint.items()}
         policy.load_state_dict(model)
 
+        render_vdo_path = args.logdir
+        if render_vdo_path:
+            cnt = 0
+            # find first unused number
+            while os.path.exists(f"{render_vdo_path}-{cnt}"):
+                cnt += 1
+            render_vdo_path = f"{render_vdo_path}-{cnt}"
+            os.makedirs(render_vdo_path)
+
         envs = DummyVectorEnv(
             [
                 lambda: my_env(render_mode="human", 
-                               render_vdo_path=args.logdir, 
+                               render_vdo_path=render_vdo_path, 
                                **task_parameter),
-                            
-                               
             ]
         )
         envs.seed(args.seed)
