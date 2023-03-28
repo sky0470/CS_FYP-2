@@ -1,5 +1,5 @@
 """
-code that train pursuit with dqn
+code that train pursuit with ppo
 code can compile for very small parameter but have not been tested in a full train
 """
 import argparse
@@ -150,6 +150,7 @@ def test_ppo(args=get_args()):
     policy = myPPOPolicy(
         num_agents=task_parameter["n_pursuers"],
         state_shape=args.state_shape,
+        device=args.device,
         actor=actor,
         critic=critic,
         optim=optim,
