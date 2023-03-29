@@ -1,6 +1,6 @@
 import time
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union, Sequence
 
 import gym
 import numpy as np
@@ -62,6 +62,12 @@ class MyCollector(object):
         buffer: Optional[ReplayBuffer] = None,
         preprocess_fn: Optional[Callable[..., Batch]] = None,
         exploration_noise: bool = False,
+        num_actions: int = 0,
+        has_noise: bool = False,
+        noise_shape: Sequence[int] = 0,
+        # num_noise_type: int = 0,
+        # num_noise_per_type: int = 0,
+        # num_noise_per_agent: int = 0,
     ) -> None:
         super().__init__()
         if isinstance(env, gym.Env) and not hasattr(env, "__len__"):
@@ -75,6 +81,15 @@ class MyCollector(object):
         self.policy = policy
         self.preprocess_fn = preprocess_fn
         self._action_space = self.env.action_space
+
+        # modified
+        self.num_actions = num_actions
+        self.has_noise = has_noise
+        self.noise_shape = noise_shape
+        self.num_noise_per_agent = np.prod(noise_shape)
+        # self.num_noise_type = num_noise_type
+        # self.num_noise_per_type = num_noise_per_type
+        # self.num_noise_per_agent = num_noise_per_agent
         # avoid creating attribute outside __init__
         self.reset(False)
 
@@ -276,6 +291,8 @@ class MyCollector(object):
         episode_noise_mus = []
         episode_noise_sigs = []
         episode_start_indices = []
+        cycle_noise_mus = [] # array of mus at each cycle within 1 episode
+        cycle_noise_sigs = [] # array of sigs at each cycle within 1 episode
 
         while True:
             assert len(self.data) == len(ready_env_ids)
@@ -301,10 +318,18 @@ class MyCollector(object):
                     result = self.policy(self.data, last_state)
                 # update state / act / policy into self.data
                 policy = result.get("policy", Batch())
-                try:
-                    noise_mu, noise_sig = result["logits"][:, :, 5].detach().cpu().numpy().astype("float"), result["logits"][:, :, 6].detach().cpu().numpy().astype("float")
-                except IndexError as e: # noise is not implemented
+
+                # log all mu sig instead of update
+                if self.has_noise:
+                    logits = result["logits"].detach().cpu().numpy().astype("float")
+                    noise_mu = logits[:, :, self.num_actions:self.num_actions + self.num_noise_per_agent]
+                    noise_sig = logits[:, :, self.num_actions + self.num_noise_per_agent:]
+                    # noise_mu, noise_sig = result["logits"][:, :, 5].detach().cpu().numpy().astype("float"), result["logits"][:, :, 6].detach().cpu().numpy().astype("float")
+                else:
                     noise_mu, noise_sig = np.zeros(result["logits"].shape[:2]), np.zeros(result["logits"].shape[:2])
+                cycle_noise_mus.append(noise_mu)
+                cycle_noise_sigs.append(noise_sig)
+
                 assert isinstance(policy, Batch)
                 state = result.get("state", None)
                 if state is not None:
@@ -375,9 +400,11 @@ class MyCollector(object):
                 episode_count += len(env_ind_local)
                 episode_lens.append(ep_len[env_ind_local])
                 episode_rews.append(ep_rew[env_ind_local])
-                episode_noise_mus.append(noise_mu)
-                episode_noise_sigs.append(noise_sig)
+                episode_noise_mus.append(np.array(cycle_noise_mus))
+                episode_noise_sigs.append(np.array(cycle_noise_sigs))
                 episode_start_indices.append(ep_idx[env_ind_local])
+                cycle_noise_mus = []
+                cycle_noise_sigs = []
                 # now we copy obs_next to obs, but since there might be
                 # finished episodes, we have to reset finished envs first.
                 self._reset_env_with_ids(
@@ -422,15 +449,19 @@ class MyCollector(object):
             self.reset_env()
 
         if episode_count > 0:
-            rews, noise_mus, noise_sigs, lens, idxs = list(
+            rews, lens, idxs = list(
                 map(
                     np.concatenate,
-                    [episode_rews, episode_noise_mus, episode_noise_sigs, episode_lens, episode_start_indices]
+                    [episode_rews, episode_lens, episode_start_indices]
                 )
             )
+
+            noise_mus = np.concatenate(episode_noise_mus, axis=1)
+            noise_sigs = np.concatenate(episode_noise_sigs, axis=1)
             rew_mean, rew_std = rews.mean(), rews.std()
-            noise_mu_mean, noise_mu_std = noise_mus.mean(), noise_mus.std()
-            noise_sig_mean, noise_sig_std = noise_sigs.mean(), noise_sigs.std()
+            axis_tuple = tuple(range(noise_mus.ndim - 1)) # tuple that contains all axis except the last one
+            noise_mu_mean, noise_mu_std = noise_mus.mean(axis=axis_tuple), noise_mus.std(axis=axis_tuple)
+            noise_sig_mean, noise_sig_std = noise_sigs.mean(axis=axis_tuple), noise_sigs.std(axis_tuple)
             len_mean, len_std = lens.mean(), lens.std()
         else:
             rews, noise_mus, noise_sigs, lens, idxs = np.array([]), np.array([]), np.array([]), np.array([], int), np.array([], int)

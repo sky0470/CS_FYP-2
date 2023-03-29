@@ -43,12 +43,13 @@ class NoisyActor(Actor):
         softmax_output: bool = True,
         preprocess_net_output_dim: Optional[int] = None,
         device: Union[str, int, torch.device] = "cpu",
-        filter_noise: bool = False
+        filter_noise: bool = False,
+        noise_shape: Sequence[int] = 0,
     ) -> None:
-        super().__init__(preprocess_net, action_shape, hidden_sizes, softmax_output, preprocess_net_output_dim, device)
+        super().__init__(preprocess_net, action_shape + int(np.prod(noise_shape) * 2), hidden_sizes, softmax_output, preprocess_net_output_dim, device)
         self.device = device
         self.preprocess = preprocess_net
-        self.output_dim = int(np.prod(action_shape))
+        self.output_dim = int(np.prod(action_shape)) + int(np.prod(noise_shape)) * 2
         input_dim = getattr(preprocess_net, "output_dim", preprocess_net_output_dim)
         self.last = MLP(
             input_dim,  # type: ignore
@@ -58,6 +59,7 @@ class NoisyActor(Actor):
         )
         self.softmax_output = softmax_output
         self.filter_noise = filter_noise
+        self.action_shape = action_shape
 
     def forward(
         self,
@@ -71,8 +73,8 @@ class NoisyActor(Actor):
         
         if self.filter_noise:
             # split into act and noise
-            logits_act = logits[:, 0:5]
-            logits_noise = logits[:, 5:]
+            logits_act = logits[:, :self.action_shape]
+            logits_noise = logits[:, self.action_shape:]
 
             if self.softmax_output:
                 # only apply to action

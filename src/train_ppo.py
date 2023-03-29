@@ -109,12 +109,20 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         urgency_reward=-0.05,
         n_catch=1,
         tag_reward=0,
+        catch_reward_ratio=None, # redefine later
         # catch_reward_ratio=[0, 1, 2, 0.7, 0.2, -0.5],
+
+        # noise
+        # has_noise=False,
+        # num_noise_type=2,
+        # num_noise_per_type=1,
+        # num_noise_per_agent=None, # refined later
+        noise_shape=(2, 1) # (num_noise_type, num_noise_per_type(sample)) 
+        # note: only (2, 1) is implemented
     )
 
     # switch env
     print(f"env: {args.env}")
-    has_noise = False
     if args.env is None:
         from pursuit_msg.pursuit import my_parallel_env as my_env, __version__ as env_version
     elif args.env == "msg":
@@ -127,7 +135,7 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         from pursuit_msg.pursuit import my_parallel_env_ic3 as my_env, __version__ as env_version
     elif args.env == 'noise':
         from pursuit_msg.pursuit import my_parallel_env_noise as my_env, __version__ as env_version
-        has_noise = True
+        task_parameter["has_noise"] = True
     else:
         raise NotImplementedError(f"env '{args.env}' is not implemented")
 
@@ -150,8 +158,9 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         args.render = 0.05
         args.logdir = "quicktrain"
 
-    # set catch reward ratio
+    # redefine task_param 
     task_parameter["catch_reward_ratio"] = args.catch_reward_ratio if args.catch_reward_ratio is not None else [num for num in range(task_parameter["n_pursuers"] + 1)] 
+    # task_parameter["num_noise_per_agent"] = task_parameter["num_noise_type"] * task_parameter["num_noise_per_type"]
 
     env = my_env(**task_parameter)
     args.state_shape = env.observation_space.shape or env.observation_space.n
@@ -185,9 +194,8 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         )
         critic = DataParallelNet(Critic(net, device=None).to(args.device))
     else:
-        num_noise_per_agent = 2
-        if has_noise:
-            actor = NoisyActor(net, args.action_shape + num_noise_per_agent * 2, device=args.device, filter_noise=has_noise).to(args.device)
+        if task_parameter["has_noise"]:
+            actor = NoisyActor(net, args.action_shape, device=args.device, filter_noise=task_parameter["has_noise"], noise_shape=task_parameter["noise_shape"]).to(args.device)
         else:
             actor = Actor(net, args.action_shape, device=args.device).to(args.device)
         critic = Critic(net, device=args.device).to(args.device)
@@ -203,6 +211,11 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         num_agents=task_parameter["n_pursuers"],
         state_shape=args.state_shape,
         device=args.device,
+        num_actions=args.action_shape,
+        # num_noise_type=task_parameter["num_noise_type"],
+        # num_noise_per_type=task_parameter["num_noise_per_type"],
+        # num_noise_per_agent=task_parameter["num_noise_per_agent"],
+        noise_shape=task_parameter["noise_shape"],
         actor=actor,
         critic=critic,
         optim=optim,
@@ -223,9 +236,22 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
     )
     # collector
     train_collector = MyCollector(
-        policy, train_envs, VectorReplayBuffer(args.buffer_size, len(train_envs))
+        policy, train_envs, VectorReplayBuffer(args.buffer_size, len(train_envs)),
+        num_actions=args.action_shape,
+        has_noise=task_parameter["has_noise"],
+        # num_noise_type=task_parameter["num_noise_type"],
+        # num_noise_per_type=task_parameter["num_noise_per_type"],
+        # num_noise_per_agent=task_parameter["num_noise_per_agent"],
+        noise_shape=task_parameter["noise_shape"],
     )
-    test_collector = MyCollector(policy, test_envs)
+    test_collector = MyCollector(policy, test_envs, 
+        num_actions=args.action_shape,
+        has_noise=task_parameter["has_noise"],
+        # num_noise_type=task_parameter["num_noise_type"],
+        # num_noise_per_type=task_parameter["num_noise_per_type"],
+        # num_noise_per_agent=task_parameter["num_noise_per_agent"],
+        noise_shape=task_parameter["noise_shape"],
+    )
     # train_collector.collect(n_step=args.batch_size * args.training_num)
     train_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     # log

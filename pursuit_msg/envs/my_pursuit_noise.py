@@ -36,9 +36,21 @@ ActionDict = Dict[AgentID, ActionType]
 # from utils.conversion.py
 def my_parallel_wrapper_fn_noise(env_fn, seed=None):
     def par_fn(**kwargs):
+        has_noise = kwargs.pop("has_noise")
+        noise_shape = kwargs.pop("noise_shape")
+
+        # num_noise_type = kwargs.pop("num_noise_type")
+        # num_noise_per_type = kwargs.pop("num_noise_per_type")
+        # num_noise_per_agent = kwargs.pop("num_noise_per_agent")
         env = env_fn(**kwargs)
         env = aec_to_parallel_wrapper_noise(env, seed)
-        env = MultiDiscreteToDiscreteNoise(env)
+        env = MultiDiscreteToDiscreteNoise(env,
+                                           has_noise=has_noise,
+                                           noise_shape=noise_shape
+        )
+                                        #    num_noise_type=num_noise_type, 
+                                        #    num_noise_per_type=num_noise_per_type, 
+                                        #    num_noise_per_agent=num_noise_per_agent)
         return env
 
     return par_fn
