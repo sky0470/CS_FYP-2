@@ -193,8 +193,8 @@ class myPPOPolicy(PPOPolicy):
         logits_act = logits[:, :, :num_actions]
         if num_noise_per_agent > 0: # the format of the NN output is: num_action + mu * num_noise_per_agent + sig * num_noise_per_agent
             # pack all mu and sig tgt
-            logits_noise_mu = logits[:, :, num_actions:num_actions + num_noise_per_agent].reshape(logits.shape[0], -1)
-            logits_noise_sig = torch.clamp(logits[:, :, num_actions + num_noise_per_agent:], min=-3, max=-0.5).exp().reshape(logits.shape[0], -1)
+            logits_noise_mu = logits[:, :, num_actions:num_actions + num_noise_per_agent]
+            logits_noise_sig = torch.clamp(logits[:, :, num_actions + num_noise_per_agent:], min=-3, max=-0.5).exp()
             logits_noise = (logits_noise_mu, logits_noise_sig)
         else:
             logits_noise = None
@@ -215,10 +215,10 @@ class myPPOPolicy(PPOPolicy):
 
         if self._deterministic_eval and not self.training:
             act = logits_act.argmax(-1)
-            act_noise = logits_noise[0]
+            act_noise = logits_noise[0].reshape(logits.shape[0], -1)
         else:
             act = dist.sample()
-            act_noise = dist_2.sample()
+            act_noise = dist_2.sample().reshape(logits.shape[0], -1)
 
         # encode action from [num_agent] to int
         act = to_numpy(act)
