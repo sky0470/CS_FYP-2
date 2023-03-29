@@ -22,6 +22,10 @@ class myPPOPolicy(PPOPolicy):
         assert num_agents is not None
         super().__init__(*args, **kwargs)
         self.num_actions = 5
+        self.num_noise_type = 2
+        self.num_noise_per_type = 1
+        self.num_noise_per_agent = self.num_noise_type * self.num_noise_per_type
+
         self.state_shape = state_shape
         self.num_agents = num_agents
         self.bases = self.num_actions ** (num_agents - 1)
@@ -40,7 +44,7 @@ class myPPOPolicy(PPOPolicy):
         with torch.no_grad():
             b = self(batch)
             batch.logp_old = b.dist.log_prob(torch.unsqueeze(batch.act, 1)) \
-                + b.dist_2.log_prob(torch.unsqueeze(batch.act_noise, 1))
+                + b.dist_2.log_prob(batch.act_noise).sum(-1, keepdim=True)
         return batch
 
     # modified
@@ -61,11 +65,11 @@ class myPPOPolicy(PPOPolicy):
                     minibatch.adv = (minibatch.adv - mean) / (
                         std + self._eps
                     )  # per-batch norm
-
+                
                 ratio = (
                     (
                         dist.log_prob(torch.unsqueeze(minibatch.act, 1)) \
-                            + dist_2.log_prob(torch.unsqueeze(minibatch.act_noise, 1))
+                            + dist_2.log_prob(minibatch.act_noise).sum(-1, keepdim=True)
                         - minibatch.logp_old  # modified
                     )
                     .exp()
@@ -149,9 +153,6 @@ class myPPOPolicy(PPOPolicy):
         training_num = batch.obs.shape[0]
         num_agents = batch.obs.shape[1]
         num_actions = self.num_actions
-        num_noise_type = 2
-        num_noise_per_type = 1
-        num_noise_per_agent = num_noise_type * num_noise_per_type
 
         # model input: 4x4x3 output: 5
         # old method input: 5x7x4x4x3 (train_num x n_pursuer x **obs) output logit: 5x5^7 (train_num x 5 action ^ n_pursuer); act: 5 (train_num)
@@ -161,7 +162,7 @@ class myPPOPolicy(PPOPolicy):
 
         # set logit for each agent
         logits = torch.empty(
-            [num_agents, training_num, num_actions + num_noise_per_agent * 2], device=self.device
+            [num_agents, training_num, num_actions + self.num_noise_per_agent * 2], device=self.device
         )
         state_ret = None
         for i in range(num_agents):
@@ -191,10 +192,12 @@ class myPPOPolicy(PPOPolicy):
                 state_ret["cell"][:, (i,)] = _state["cell"]
         logits = logits.transpose(1, 0)
         logits_act = logits[:, :, :num_actions]
-        if num_noise_per_agent > 0: # the format of the NN output is: num_action + mu * num_noise_per_agent + sig * num_noise_per_agent
+        if self.num_noise_per_agent > 0: # the format of the NN output is: num_action + mu * num_noise_per_agent + sig * num_noise_per_agent
             # pack all mu and sig tgt
-            logits_noise_mu = logits[:, :, num_actions:num_actions + num_noise_per_agent]
-            logits_noise_sig = torch.clamp(logits[:, :, num_actions + num_noise_per_agent:], min=-3, max=-0.5).exp()
+            # logits_noise_mu = logits[:, :, num_actions:num_actions + num_noise_per_agent]
+            # logits_noise_sig = torch.clamp(logits[:, :, num_actions + num_noise_per_agent:], min=-3, max=-0.5).exp()
+            logits_noise_mu = logits[:, :, num_actions:num_actions + self.num_noise_per_agent].reshape(logits.shape[0], -1)
+            logits_noise_sig = torch.clamp(logits[:, :, num_actions + self.num_noise_per_agent:], min=-3, max=-0.5).exp().reshape(logits.shape[0], -1)
             logits_noise = (logits_noise_mu, logits_noise_sig)
         else:
             logits_noise = None
@@ -215,10 +218,12 @@ class myPPOPolicy(PPOPolicy):
 
         if self._deterministic_eval and not self.training:
             act = logits_act.argmax(-1)
-            act_noise = logits_noise[0].reshape(logits.shape[0], -1)
+            # act_noise = logits_noise[0].reshape(logits.shape[0], -1)
+            act_noise = logits_noise[0]
         else:
             act = dist.sample()
-            act_noise = dist_2.sample().reshape(logits.shape[0], -1)
+            # act_noise = dist_2.sample().reshape(logits.shape[0], -1)
+            act_noise = dist_2.sample()
 
         # encode action from [num_agent] to int
         act = to_numpy(act)
@@ -228,6 +233,7 @@ class myPPOPolicy(PPOPolicy):
 
         act_noise = to_numpy(act_noise)
         act_ = np.concatenate((act_[:, None], act_noise, batch.obs[:, :, 0].reshape(batch.obs.shape[0], -1)), 1)
+        
         # act_ shape = btz, 6 -> 6 = 1 + 5, combined act + noise for 0..4
         # logits shape = btz, agent, 7 -> 7 = 5 + 2, logit for act + (mean, sig) for noise
         return Batch(logits=logits, act=act_, state=state_ret, dist=dist, dist_2=dist_2)
@@ -278,7 +284,8 @@ class myPPOPolicy(PPOPolicy):
                 truncated=buffer.truncated,
                 obs_next=np.expand_dims(buffer.obs_next[:, i], axis=1),
                 act = buffer_act[:, i],
-                act_noise = buffer.act[:, i+1],
+                # act_noise = buffer.act[:, i+1],
+                act_noise = buffer.act[:, 1 + i * self.num_noise_per_agent:1 + (i + 1) * self.num_noise_per_agent],
                 #act_noise = np.expand_dims(buffer.act[:, i+1], axis=1)
             )
             _buffer = ReplayBuffer(
@@ -312,7 +319,8 @@ class myPPOPolicy(PPOPolicy):
                 ),
                 act = batch_act[:, i],
                 # act_noise = np.expand_dims(batch.act[:, i+1], axis=1)
-                act_noise = batch.act[:, i+1],
+                # act_noise = batch.act[:, i+1],
+                act_noise = batch.act[:, 1 + i * self.num_noise_per_agent:1 + (i + 1) * self.num_noise_per_agent],
             )
             _batch = self.process_fn(_batch, _buffer, indices)
             (losses_, clip_losses_, vf_losses_, ent_losses_) = self.learn(
