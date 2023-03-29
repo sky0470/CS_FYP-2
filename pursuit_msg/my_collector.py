@@ -327,8 +327,12 @@ class MyCollector(object):
                     # noise_mu, noise_sig = result["logits"][:, :, 5].detach().cpu().numpy().astype("float"), result["logits"][:, :, 6].detach().cpu().numpy().astype("float")
                 else:
                     noise_mu, noise_sig = np.zeros(result["logits"].shape[:2]), np.zeros(result["logits"].shape[:2])
-                cycle_noise_mus.append(noise_mu)
-                cycle_noise_sigs.append(noise_sig)
+                if len(cycle_noise_mus) == 0:
+                    cycle_noise_mus.append(noise_mu)
+                    cycle_noise_sigs.append(noise_sig)
+                else:
+                    cycle_noise_mus[0] = noise_mu
+                    cycle_noise_sigs[0] = noise_sig
 
                 assert isinstance(policy, Batch)
                 state = result.get("state", None)
