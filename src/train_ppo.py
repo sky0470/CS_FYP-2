@@ -185,8 +185,9 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         )
         critic = DataParallelNet(Critic(net, device=None).to(args.device))
     else:
+        num_noise_per_agent = 2
         if has_noise:
-            actor = NoisyActor(net, args.action_shape + 2, device=args.device, filter_noise=has_noise).to(args.device)
+            actor = NoisyActor(net, args.action_shape + num_noise_per_agent * 2, device=args.device, filter_noise=has_noise).to(args.device)
         else:
             actor = Actor(net, args.action_shape, device=args.device).to(args.device)
         critic = Critic(net, device=args.device).to(args.device)

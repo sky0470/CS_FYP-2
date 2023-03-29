@@ -95,7 +95,7 @@ class aec_to_parallel_wrapper_noise(aec_to_parallel_wrapper):
     def step(self, actions):
         (actions, noise, prev_obs) = actions
         actions = actions.astype(int)
-        prev_obs = prev_obs.reshape([5,3,3,5])
+        # prev_obs = prev_obs.reshape([5,3,3,5])
         actions = dict(zip(self.aec_env.agents, actions))
 
         rewards = defaultdict(int)
@@ -134,12 +134,25 @@ class aec_to_parallel_wrapper_noise(aec_to_parallel_wrapper):
         self.agents = self.aec_env.agents
 
         obs = np.array(list(observations.values()))
-        obs_noise = (prev_obs.T + noise).T # add old noise to old obs
+        num_agents = obs.shape[0]
+
+        # reshape prev obs and noise
+        prev_obs = prev_obs.reshape(obs.shape) # originally hardcoded as (5, 3, 3, 5) (n_agents, obs_range, obs_range, obs_dims)
+        noise = noise.reshape(num_agents, -1) # noise: (num_agent, num_noise_per_agent)
+        num_noise_per_agent = noise.shape[1]
+
+        # apply noise to predator and prey dim
+        obs_noise = prev_obs
+        for i in range(num_agents):
+            obs_noise[i, :, :, :2] += noise[i, :]
+
+        # apply noise to all obs type
+        # obs_noise = (prev_obs.T + noise).T # add old noise to old obs
         # obs_noise = (obs.T + noise - 0.5).T # add old noise to new obs
-        dist = np.array([[-1 if i==j else self.cal_dist(o, obs[i]) for (j, o) in enumerate(obs)] for i in range(obs.shape[0])])
+        dist = np.array([[-1 if i==j else self.cal_dist(o, obs[i]) for (j, o) in enumerate(obs)] for i in range(num_agents)])
         order = dist.argsort()
-        # observations = np.array([np.vstack((obs[i][None,:], obs[order[i][1:]])) for i in range(obs.shape[0])])
-        observations = np.array([np.vstack((obs[i][None,:], obs_noise[order[i][1:]])) for i in range(obs.shape[0])])
+        # observations = np.array([np.vstack((obs[i][None,:], obs[order[i][1:]])) for i in range(num_agents)])
+        observations = np.array([np.vstack((obs[i][None,:], obs_noise[order[i][1:]])) for i in range(num_agents)])
 
         rewards = np.array(list(rewards.values()))  # for CTDE
         # rewards = np.array(list(rewards.values())).sum() # for centralized

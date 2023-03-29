@@ -148,7 +148,10 @@ class myPPOPolicy(PPOPolicy):
 
         training_num = batch.obs.shape[0]
         num_agents = batch.obs.shape[1]
-        num_actions = 5
+        num_actions = self.num_actions
+        num_noise_type = 2
+        num_noise_per_type = 1
+        num_noise_per_agent = num_noise_type * num_noise_per_type
 
         # model input: 4x4x3 output: 5
         # old method input: 5x7x4x4x3 (train_num x n_pursuer x **obs) output logit: 5x5^7 (train_num x 5 action ^ n_pursuer); act: 5 (train_num)
@@ -158,7 +161,7 @@ class myPPOPolicy(PPOPolicy):
 
         # set logit for each agent
         logits = torch.empty(
-            [num_agents, training_num, num_actions + 2], device=self.device
+            [num_agents, training_num, num_actions + num_noise_per_agent * 2], device=self.device
         )
         state_ret = None
         for i in range(num_agents):
@@ -188,9 +191,11 @@ class myPPOPolicy(PPOPolicy):
                 state_ret["cell"][:, (i,)] = _state["cell"]
         logits = logits.transpose(1, 0)
         logits_act = logits[:, :, :num_actions]
-        has_noise = (logits.shape[-1] > num_actions) # last dim is output size
-        if has_noise:
-            logits_noise = (logits[:, :, num_actions], torch.clamp(logits[:, :, num_actions + 1], min=-3, max=-0.5).exp())
+        if num_noise_per_agent > 0: # the format of the NN output is: num_action + mu * num_noise_per_agent + sig * num_noise_per_agent
+            # pack all mu and sig tgt
+            logits_noise_mu = logits[:, :, num_actions:num_actions + num_noise_per_agent].reshape(logits.shape[0], -1)
+            logits_noise_sig = torch.clamp(logits[:, :, num_actions + num_noise_per_agent:], min=-3, max=-0.5).exp().reshape(logits.shape[0], -1)
+            logits_noise = (logits_noise_mu, logits_noise_sig)
         else:
             logits_noise = None
 
@@ -215,7 +220,7 @@ class myPPOPolicy(PPOPolicy):
             act = dist.sample()
             act_noise = dist_2.sample()
 
-        # encode action from [num_agent] to int]
+        # encode action from [num_agent] to int
         act = to_numpy(act)
         for i in range(num_agents):
             act_ = act_ + bases * act[:, i]
@@ -251,10 +256,9 @@ class myPPOPolicy(PPOPolicy):
         self.updating = True
 
         num_agents = buffer.obs.shape[1]
-        num_actions = 5
 
         def action(act: np.ndarray) -> np.ndarray:
-            # convert int to n-base representation
+            # decode int to n-base representation
             converted_act = []
             for b in self.bases_arr:
                 converted_act.append(act // b)
