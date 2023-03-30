@@ -22,11 +22,54 @@ from tianshou.utils.net.discrete import Actor, Critic
 import sys
 import datetime
 import json
+import matplotlib.pyplot as plt
 
 from pursuit_msg.policy.myppo import myPPOPolicy
 from pursuit_msg.net.msgnet import MsgNet
 from pursuit_msg.net.noisy_actor import NoisyActor
 from pursuit_msg.my_collector import MyCollector
+
+
+def plot_noise(data, path):
+    n_episode = data["n/ep"]
+    rwds = data["rews"]
+    max_cycles = data["len"]
+    noise_mu = data["noises_mu"]
+    noise_sig = data["noises_sig"]
+    num_agents = rwds.shape[1]
+
+    if noise_mu.ndim != 4:
+        return 
+
+    num_noise_type = noise_mu.shape[-1]
+
+    x = np.arange(max_cycles)
+
+    for ep in range(n_episode):
+        fig = plt.figure(figsize=(8, 6))
+        fig.suptitle(f"episode {ep + 1}")
+        for t in range(num_noise_type):
+            # horizontal align
+            # ax_mu = fig.add_subplot(num_noise_type, 2, t + 1, title=f"mu-{t}", xlabel="step")
+            # ax_sig = fig.add_subplot(num_noise_type, 2, t + 2, title=f"sig-{t}", xlabel="step")
+
+            # vertical align
+            ax_mu = fig.add_subplot(2, num_noise_type, t + 1, title=f"mu-{t}", xlabel="step", xlim=(0, max_cycles))
+            ax_sig = fig.add_subplot(2, num_noise_type, t + 1 + num_noise_type, title=f"sig-{t}", xlabel="step", xlim=(0, max_cycles))
+            # ax_mu.set_xlabel
+            for i in range(num_agents):
+                ax_mu.plot(x, noise_mu[:, ep, i, t], label=f"P{i}", marker='.')
+                ax_mu.plot(x, np.zeros_like(x), color="black")
+                ax_sig.plot(x, noise_sig[:, ep, i, t], label=f"P{i}", marker='.')
+                ax_sig.plot(x, np.zeros_like(x), color="black")
+
+            ax_mu.legend(loc=1, fontsize=8)
+            ax_sig.legend(loc=1, fontsize=8)
+        
+        fig.tight_layout()
+        fig.savefig(os.path.join(path, f"render-{ep + 1:02d}", "noise.png"), dpi=200)
+    # plt.show()
+
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -236,6 +279,12 @@ def test_ppo(args=get_args()):
             json.dump(result_json, f, indent=4)
 
         print(f"summary generated to {render_vdo_path}")
+
+        # plot noise
+        if task_parameter["has_noise"]:
+            plot_noise(result, render_vdo_path)
+            print(f"noise graph generated to {render_vdo_path}")
+
         # rews, lens = result["rews"], result["lens"]
         # print(f"Final reward: {rews.mean()}, length: {lens.mean()}")
 
