@@ -72,6 +72,7 @@ def get_args():
 
     # task param
     parser.add_argument('--catch-reward-ratio', type=float, nargs="+", default=None)
+    parser.add_argument('--noise-shape', type=int, nargs=2, default=(-1, 1))
 
     # switch env
     parser.add_argument('--env', type=str, default=None)
@@ -116,9 +117,9 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         has_noise=False,
         # num_noise_type=2,
         # num_noise_per_type=1,
-        # num_noise_per_agent=None, # refined later
-        noise_shape=(2, 1), # (num_noise_type, num_noise_per_type(sample)) 
-        # note: only (2, 1) is implemented, if has_noise is true
+        # num_noise_per_agent=None, # redefine later
+        noise_shape=None # redefine later
+        # note: only (2, 1), (-1, 1) are implemented, if has_noise is true
     )
 
     # switch env
@@ -159,7 +160,10 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         args.logdir = "quicktrain"
 
     # redefine task_param 
-    task_parameter["catch_reward_ratio"] = args.catch_reward_ratio if args.catch_reward_ratio is not None else [num for num in range(task_parameter["n_pursuers"] + 1)] 
+    task_parameter["catch_reward_ratio"] = args.catch_reward_ratio or [num for num in range(task_parameter["n_pursuers"] + 1)]
+    task_parameter["noise_shape"] = tuple(args.noise_shape) if task_parameter["has_noise"] else 0
+    if task_parameter["noise_shape"] not in [(-1, 1), (2, 1), 0]:
+        raise NotImplementedError("Please use (-1, 1), (2, 1) or 0")
     # task_parameter["num_noise_per_agent"] = task_parameter["num_noise_type"] * task_parameter["num_noise_per_type"]
 
     env = my_env(**task_parameter)
@@ -195,7 +199,7 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         critic = DataParallelNet(Critic(net, device=None).to(args.device))
     else:
         if task_parameter["has_noise"]:
-            actor = NoisyActor(net, args.action_shape, device=args.device, filter_noise=task_parameter["has_noise"], noise_shape=task_parameter["noise_shape"]).to(args.device)
+            actor = NoisyActor(net, args.action_shape, device=args.device, filter_noise=True, noise_shape=task_parameter["noise_shape"]).to(args.device)
         else:
             actor = Actor(net, args.action_shape, device=args.device).to(args.device)
         critic = Critic(net, device=args.device).to(args.device)

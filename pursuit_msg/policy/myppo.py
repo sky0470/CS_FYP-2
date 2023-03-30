@@ -28,7 +28,7 @@ class myPPOPolicy(PPOPolicy):
         super().__init__(*args, **kwargs)
         self.num_actions = num_actions
         self.noise_shape = noise_shape
-        self.num_noise_per_agent = np.prod(noise_shape)
+        self.num_noise_per_agent = abs(np.prod(noise_shape))
         # self.num_noise_type = num_noise_type
         # self.num_noise_per_type = num_noise_per_type
         # self.num_noise_per_agent = num_noise_per_agent
