@@ -68,6 +68,7 @@ def get_args():
 
     # task param
     parser.add_argument('--catch-reward-ratio', type=float, nargs="+", default=None)
+    parser.add_argument('--noise-shape', type=int, nargs=2, default=(-1, 1))
 
     # switch env
     parser.add_argument('--env', type=str, default=None)
@@ -79,28 +80,33 @@ def get_args():
 
 
 def test_ppo(args=get_args()):
-    task_parameter = {
-        "shared_reward": False,
-        "surround": False,
-        "freeze_evaders": True,
+    task_parameter = dict(
+        shared_reward=False,
+        surround=False,
+        freeze_evaders=True,
 
-        "x_size": 10,
-        "y_size": 10,
-        "obs_range": 3,
-        "max_cycles": 40,
+        x_size=10,
+        y_size=10,
+        obs_range=3,
+        max_cycles=40,
 
-        "n_evaders": 2,
-        "n_pursuers": 5,
+        n_evaders=2,
+        n_pursuers=5,
 
-        "catch_reward": 0.5,
-        "urgency_reward": -0.05,
-        "n_catch": 1,
-        "tag_reward": 0,
-    }
+        catch_reward=0.5,
+        urgency_reward=-0.05,
+        n_catch=1,
+        tag_reward=0,
+        catch_reward_ratio=None, # redefine later
+
+        # noise
+        has_noise=False,
+        noise_shape=None # redefine later
+        # note: only (2, 1), (-1, 1) are implemented, if has_noise is true
+    )
 
     # switch env
     print(f"env: {args.env}")
-    has_noise = False
     if args.env is None:
         from pursuit_msg.pursuit import my_parallel_env as my_env
     elif args.env == "msg":
@@ -113,7 +119,7 @@ def test_ppo(args=get_args()):
         from pursuit_msg.pursuit import my_parallel_env_ic3 as my_env
     elif args.env == 'noise':
         from pursuit_msg.pursuit import my_parallel_env_noise as my_env
-        has_noise = True
+        task_parameter["has_noise"] = True
     else:
         raise NotImplementedError(f"env '{args.env}' is not implemented")
 
@@ -125,8 +131,11 @@ def test_ppo(args=get_args()):
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
-    # set catch reward ratio
-    task_parameter["catch_reward_ratio"] = args.catch_reward_ratio if args.catch_reward_ratio is not None else [num for num in range(task_parameter["n_pursuers"] + 1)] 
+    # redefine task_param 
+    task_parameter["catch_reward_ratio"] = args.catch_reward_ratio or [num for num in range(task_parameter["n_pursuers"] + 1)]
+    task_parameter["noise_shape"] = tuple(args.noise_shape) if task_parameter["has_noise"] else 0
+    if task_parameter["noise_shape"] not in [(-1, 1), (2, 1), 0]:
+        raise NotImplementedError("Please use (-1, 1), (2, 1) or 0")
 
     env = my_env(**task_parameter)
     args.state_shape = env.observation_space.shape or env.observation_space.n
@@ -148,8 +157,8 @@ def test_ppo(args=get_args()):
         )
         critic = DataParallelNet(Critic(net, device=None).to(args.device))
     else:
-        if has_noise:
-            actor = NoisyActor(net, args.action_shape + 2, device=args.device, filter_noise=has_noise).to(args.device)
+        if task_parameter["has_noise"]:
+            actor = NoisyActor(net, args.action_shape, device=args.device, filter_noise=True, noise_shape=task_parameter["noise_shape"]).to(args.device)
         else:
             actor = Actor(net, args.action_shape, device=args.device).to(args.device)
         critic = Critic(net, device=args.device).to(args.device)
@@ -166,6 +175,8 @@ def test_ppo(args=get_args()):
         num_agents=task_parameter["n_pursuers"],
         state_shape=args.state_shape,
         device=args.device,
+        num_actions=args.action_shape,
+        noise_shape=task_parameter["noise_shape"],
         actor=actor,
         critic=critic,
         optim=optim,
@@ -184,6 +195,7 @@ def test_ppo(args=get_args()):
         advantage_normalization=args.norm_adv,
         recompute_advantage=args.recompute_adv,
     )
+    pprint.pprint(dict(task_parameter=task_parameter))
 
     if __name__ == "__main__":
         checkpoint = torch.load(args.path, map_location=args.device)
@@ -209,7 +221,11 @@ def test_ppo(args=get_args()):
         envs.seed(args.seed)
 
         policy.eval()
-        collector = MyCollector(policy, envs)
+        collector = MyCollector(policy, envs,
+                                num_actions=args.action_shape,
+                                has_noise=task_parameter["has_noise"],
+                                noise_shape=task_parameter["noise_shape"],
+                                )
         result = collector.collect(n_episode=args.n_episode, render=args.render)
         pprint.pprint(result)
 
@@ -218,6 +234,8 @@ def test_ppo(args=get_args()):
         }
         with open(os.path.join(render_vdo_path, "summary.json"), "w") as f:
             json.dump(result_json, f, indent=4)
+
+        print(f"summary generated to {render_vdo_path}")
         # rews, lens = result["rews"], result["lens"]
         # print(f"Final reward: {rews.mean()}, length: {lens.mean()}")
 
