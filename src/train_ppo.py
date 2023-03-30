@@ -113,12 +113,12 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         # catch_reward_ratio=[0, 1, 2, 0.7, 0.2, -0.5],
 
         # noise
-        # has_noise=False,
+        has_noise=False,
         # num_noise_type=2,
         # num_noise_per_type=1,
         # num_noise_per_agent=None, # refined later
-        noise_shape=(2, 1) # (num_noise_type, num_noise_per_type(sample)) 
-        # note: only (2, 1) is implemented
+        noise_shape=(2, 1), # (num_noise_type, num_noise_per_type(sample)) 
+        # note: only (2, 1) is implemented, if has_noise is true
     )
 
     # switch env
@@ -313,9 +313,18 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         envs = DummyVectorEnv([lambda: my_env(**task_parameter)])
 
         policy.eval()
-        collector = Collector(policy, envs)
+        collector = MyCollector(policy, envs,
+                                num_actions=args.action_shape,
+                                has_noise=task_parameter["has_noise"],
+                                # num_noise_type=task_parameter["num_noise_type"],
+                                # num_noise_per_type=task_parameter["num_noise_per_type"],
+                                # num_noise_per_agent=task_parameter["num_noise_per_agent"],
+                                noise_shape=task_parameter["noise_shape"],
+                                )
         result = collector.collect(n_episode=1, render=None)
         rews, lens = result["rews"], result["lens"]
+        print("test result:")
+        pprint.pprint(result)
         print(f"Final reward: {rews.mean()}, length: {lens.mean()}")
 
 
