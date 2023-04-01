@@ -12,7 +12,7 @@ __version__ = importlib.metadata.version(__package__ or __name__)
 print(f"Currently using {__package__} {colored(f'v{__version__}', 'blue')}")
 print(colored(f"Successfully import all pursuit envs", 'green'))
 
-confirm_msg = "Are you sure that you already called 'pip install' after u changed the env? (y/n) "
+confirm_msg = "Are you sure that you already called 'pip install' after u changed the env? (Y/n) "
 reply = input(colored(confirm_msg, 'yellow')) or 'y'
 while reply.lower() != 'y':
     if reply.lower() == 'n':

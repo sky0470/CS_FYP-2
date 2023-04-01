@@ -18,6 +18,7 @@ from tianshou.env import MultiDiscreteToDiscrete
 
 # from gymnasium.vector.utils import batch_space
 from pursuit_msg.my_gym_vector_utils.spaces import batch_space
+from pursuit_msg.my_gym_vector_utils.wrapper import MultiDiscreteToDiscreteMsg
 
 import numpy as np
 
@@ -42,7 +43,7 @@ def my_parallel_wrapper_fn_message(env_fn, seed=None):
     def par_fn(**kwargs):
         env = env_fn(**kwargs)
         env = aec_to_parallel_wrapper_message(env, seed)
-        env = MultiDiscreteToDiscrete(env)
+        env = MultiDiscreteToDiscreteMsg(env)
         return env
 
     return par_fn
@@ -86,7 +87,7 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
         # obs_mean = np.repeat(obs_mean[np.newaxis, :], obs.shape[0], axis=0)
         # observations = np.swapaxes(np.stack([obs, obs_mean]), 0, 1)
 
-        dist = np.array([[self.cal_dist(o, obs[i]) for o in obs] for i in range(obs.shape[0])])
+        dist = np.array([[-1 if i==j else self.cal_dist(o, obs[i]) for (j, o) in enumerate(obs)] for i in range(obs.shape[0])])
         order = dist.argsort()
         observations = np.array([obs[order[i]] for i in range(obs.shape[0])])
 
@@ -97,7 +98,9 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
             return observations, infos
 
     def step(self, actions):
-        actions = actions[:, 0].astype(int)
+        (actions, prev_obs) = actions
+        actions = actions.astype(int)
+        prev_obs = prev_obs.reshape([5,3,3,5])
         actions = dict(zip(self.aec_env.agents, actions))
 
         rewards = defaultdict(int)
@@ -136,13 +139,10 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
         self.agents = self.aec_env.agents
 
         obs = np.array(list(observations.values()))
-        # obs_mean = obs.mean(axis=0)
-        # obs_mean = np.repeat(obs_mean[np.newaxis, :], obs.shape[0], axis=0)
-        # observations = np.swapaxes(np.stack([obs, obs_mean]), 0, 1)
-
-        dist = np.array([[self.cal_dist(o, obs[i]) for o in obs] for i in range(obs.shape[0])])
+        dist = np.array([[-1 if i==j else self.cal_dist(o, obs[i]) for (j, o) in enumerate(obs)] for i in range(obs.shape[0])])
         order = dist.argsort()
-        observations = np.array([obs[order[i]] for i in range(obs.shape[0])])
+        observations = np.array([np.vstack((obs[i][None,:], prev_obs[order[i][1:]])) for i in range( obs.shape[0])])
+        # observations = np.array([prev_obs[order[i]] for i in range(obs.shape[0])])
 
         rewards = np.array(list(rewards.values()))  # for CTDE
         # rewards = np.array(list(rewards.values())).sum() # for centralized

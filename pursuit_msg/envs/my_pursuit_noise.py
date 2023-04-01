@@ -172,7 +172,7 @@ class aec_to_parallel_wrapper_noise(aec_to_parallel_wrapper):
         dist = np.array([[-1 if i==j else self.cal_dist(o, obs[i]) for (j, o) in enumerate(obs)] for i in range(num_agents)])
         order = dist.argsort()
         # observations = np.array([np.vstack((obs[i][None,:], obs[order[i][1:]])) for i in range(num_agents)])
-        observations = np.array([np.vstack((obs[i][None,:], obs_noise[order[i][1:]])) for i in range(num_agents)])
+        observations = np.array([np.vstack((obs[i][None,:], prev_obs[order[i][1:]])) for i in range(num_agents)])
 
         rewards = np.array(list(rewards.values()))  # for CTDE
         # rewards = np.array(list(rewards.values())).sum() # for centralized
