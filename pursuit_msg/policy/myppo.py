@@ -26,6 +26,10 @@ class myPPOPolicy(PPOPolicy):
         self.num_actions = num_actions
         self.noise_shape = noise_shape
         self.num_noise = 0 if noise_shape is None else abs(noise_shape[0])
+        # print("ppo", dict(
+        #     noise_shape=self.noise_shape,
+        #     num_noise=self.num_noise,
+        # ))
 
         self.state_shape = state_shape
         self.num_agents = num_agents
@@ -53,14 +57,21 @@ class myPPOPolicy(PPOPolicy):
             batch.act_noise = to_torch_as(batch.act_noise, batch.v_s)
             with torch.no_grad():
                 b = self(batch)
-                print(batch.act_noise.shape)
-                print(b.dist_2.loc.shape)
+                print("myppo.process", dict(
+                    act_noise_shape=batch.act_noise.shape,
+                    loc_shape=b.dist_2.loc.shape, 
+                    dist1_shape=b.dist.log_prob(torch.unsqueeze(batch.act, 1)).shape,
+                    dist2_shape=b.dist_2.log_prob(batch.act_noise).sum(-1, keepdim=True).shape,
+                ))
                 batch.logp_old = b.dist.log_prob(torch.unsqueeze(batch.act, 1)) \
                     + b.dist_2.log_prob(batch.act_noise).sum(-1, keepdim=True)
-                print(batch.logp_old.mean())
-                print(batch.logp_old.min())
-                print(batch.logp_old.max())
-                print(batch.logp_old.shape)
+                print("myppo.process", dict(
+                    logp_old_mean=batch.logp_old.mean(),
+                    logp_old_min=batch.logp_old.min(),
+                    logp_old_max=batch.logp_old.max(),
+                    logp_old_mshape=batch.logp_old.shape,
+                ))
+                
         return batch
 
     # modified
@@ -87,6 +98,15 @@ class myPPOPolicy(PPOPolicy):
                     ratio = dist.log_prob(torch.unsqueeze(minibatch.act, 1)) \
                             + dist_2.log_prob(minibatch.act_noise).sum(-1, keepdim=True) \
                             - minibatch.logp_old  # modified
+                    print("myppo.learn", dict(
+                        dist1_shape=dist.log_prob(torch.unsqueeze(minibatch.act, 1)).shape,
+                        dist2_shape=dist_2.log_prob(minibatch.act_noise).sum(-1, keepdim=True).shape,
+                        logp_old_shape=minibatch.logp_old.shape,
+                        dist1=dist.log_prob(torch.unsqueeze(minibatch.act, 1))[:5],
+                        dist2=dist_2.log_prob(minibatch.act_noise).sum(-1, keepdim=True)[:5],
+                        logp_old=minibatch.logp_old[:5],
+                        ratio=ratio[:5],
+                    ))
                 ratio = ratio.exp().float()
                 ratio = ratio.reshape(ratio.size(0), -1).transpose(0, 1)
                 surr1 = ratio * minibatch.adv
@@ -222,12 +242,20 @@ class myPPOPolicy(PPOPolicy):
             bases = bases // num_actions
 
 
-        if self.num_noise: # the format of the NN output is: num_action + mu * num_noise+ sig * num_noise
+        if self.num_noise: # the format of the NN output is: num_action + mu * num_noise + sig * num_noise
             # pack all mu and sig tgt
             noise_shape = logits.shape[:2] + (self.num_noise,)
+            # print("myppo.fw", dict(
+            #     noise_shape_local=noise_shape,
+            #     logits_shape=logits.shape,
+            #     noise_shape=self.noise_shape,
+            #     num_noise=self.num_noise,
+            # ))
+            
             logits_noise_mu = logits[:, :, num_actions:num_actions + self.num_noise].reshape(logits.shape[0], -1)
             logits_noise_sig = torch.clamp(logits[:, :, num_actions + self.num_noise:], min=-3, max=-0.5).exp().reshape(logits.shape[0], -1)
             logits_noise = (logits_noise_mu, logits_noise_sig)
+            
             dist_2 = self.dist_2_fn(*logits_noise)
             if self._deterministic_eval and not self.training:
                 act_noise = logits_noise[0]
@@ -235,13 +263,26 @@ class myPPOPolicy(PPOPolicy):
                 act_noise = dist_2.sample()
             act_noise = to_numpy(act_noise)
 
-            obs = batch.obs[:, :, 0]
+            # print("myppo.fw", dict(
+            #     batch_obs_shape=batch.obs.shape,
+            #     act_noise_shape=act_noise.shape,
+            # ))
+            obs = batch.obs[:, :, 0] # batch obs shape: (#train/test, #agent, #agent, #obs_range, #obs_range, #obs_type)
             if self.noise_shape == (-1, 1):
                 obs += act_noise.reshape(noise_shape)[:, :, None, None]
             else:
-                obs[:, :, :, :, :2] += act_noise.reshape(noise_shape)[:,:, None, None]
+                # print("myppo.fw", dict(
+                #     obs_shape=obs.shape,
+                #     add_value_shape=act_noise.reshape(noise_shape)[:, :, None, None].shape
+                # ))
+                obs[:, :, :, :, :2] += act_noise.reshape(noise_shape)[:, :, None, None]
 
             obs = obs.reshape(obs.shape[0], -1)
+            print("myppo.fw", dict(
+                act_shape=act_[:, None].shape,
+                act_noise_shape=act_noise.shape,
+                obs_shape=obs.shape,
+            ))
             act_ = np.concatenate((act_[:, None], act_noise, obs), 1)
         else: # no noise
             act_ = np.concatenate((act_[:, None], batch.obs[:, :, 0].reshape(batch.obs.shape[0], -1) ),1)
