@@ -11,6 +11,7 @@ from .utils import agent_utils, two_d_maps
 from .utils.agent_layer import AgentLayer
 from .utils.controllers import PursuitPolicy, RandomPolicy, SingleActionPolicy
 
+import os
 
 class Pursuit:
     def __init__(
@@ -33,6 +34,8 @@ class Pursuit:
         render_mode=None,
         constraint_window: float = 1.0,
         catch_reward_ratio = None,
+        maxfps: int = 200,
+        render_vdo_path = None
     ):
         """In evade pursuit a set of pursuers must 'tag' a set of evaders.
 
@@ -175,9 +178,12 @@ class Pursuit:
 
         self.model_state = np.zeros((4,) + self.map_matrix.shape, dtype=np.float32)
         self.renderOn = False
-        self.pixel_scale = 30
+        self.pixel_scale = 50
 
         self.frames = 0
+        self.maxfps = maxfps
+        self.render_vdo_path = render_vdo_path
+        self.render_cnt = 0
         self.reset()
 
     def observation_space(self, agent):
@@ -311,6 +317,16 @@ class Pursuit:
 
         if self.render_mode == "human":
             self.render()
+
+    def draw_info(self):
+        font_small = pygame.font.SysFont("Comic Sans MS", int(self.pixel_scale * 0.4))
+        x, y = 0, 0
+        (pos_x, pos_y) = (
+            self.pixel_scale * x + self.pixel_scale // 3,
+            self.pixel_scale * y + self.pixel_scale // 3
+        )
+        text = font_small.render(f"Frame #{self.frames} FPS:{self.clock.get_fps():.2f}", False, (255, 255, 255))
+        self.screen.blit(text, (pos_x, pos_y))
 
     def draw_model_state(self):
         # -1 is building pixel flag
@@ -448,15 +464,24 @@ class Pursuit:
         if not self.renderOn:
             if self.render_mode == "human":
                 pygame.display.init()
+                self.clock = pygame.time.Clock()  
                 self.screen = pygame.display.set_mode(
                     (self.pixel_scale * self.x_size, self.pixel_scale * self.y_size)
                 )
             else:
+                self.clock = None
                 self.screen = pygame.Surface(
                     (self.pixel_scale * self.x_size, self.pixel_scale * self.y_size)
                 )
-
+            
             self.renderOn = True
+            self.render_cnt += 1
+            render_vdo_path = os.path.join(self.render_vdo_path, f"render-{self.render_cnt:02d}")
+            print(f"folder of rendered frames: {render_vdo_path}")
+            os.makedirs(render_vdo_path)
+
+        if self.clock:
+            self.clock.tick(self.maxfps)
         self.draw_model_state()
 
         self.draw_pursuers_observations()
@@ -464,12 +489,16 @@ class Pursuit:
         self.draw_evaders()
         self.draw_pursuers()
         self.draw_agent_counts()
+        if self.clock:
+            self.draw_info()
 
         observation = pygame.surfarray.pixels3d(self.screen)
         new_observation = np.copy(observation)
         del observation
         if self.render_mode == "human":
             pygame.display.flip()
+            if self.render_vdo_path:
+                pygame.image.save(self.screen, os.path.join(self.render_vdo_path, f"render-{self.render_cnt:02d}", f"frame_{self.frames:03d}.png"))
         return (
             np.transpose(new_observation, axes=(1, 0, 2))
             if self.render_mode == "rgb_array"
@@ -478,15 +507,16 @@ class Pursuit:
 
     def save_image(self, file_name):
         self.render()
-        capture = pygame.surfarray.array3d(self.screen)
+        pygame.image.save(self.screen, file_name)
+        # capture = pygame.surfarray.array3d(self.screen)
 
-        xl, xh = -self.obs_offset - 1, self.x_size + self.obs_offset + 1
-        yl, yh = -self.obs_offset - 1, self.y_size + self.obs_offset + 1
+        # xl, xh = -self.obs_offset - 1, self.x_size + self.obs_offset + 1
+        # yl, yh = -self.obs_offset - 1, self.y_size + self.obs_offset + 1
 
-        window = pygame.Rect(xl, yl, xh, yh)
-        subcapture = capture.subsurface(window)
+        # window = pygame.Rect(xl, yl, xh, yh)
+        # subcapture = capture.subsurface(window)
 
-        pygame.image.save(subcapture, file_name)
+        # pygame.image.save(subcapture, file_name)
 
     def reward(self):
         es = self.evader_layer.get_state_matrix()  # evader positions

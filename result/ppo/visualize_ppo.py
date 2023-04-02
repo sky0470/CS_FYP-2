@@ -1,5 +1,5 @@
 """
-code that train pursuit with dqn
+code that train pursuit with ppo
 code can compile for very small parameter but have not been tested in a full train
 """
 import argparse
@@ -21,6 +21,7 @@ from tianshou.utils.net.discrete import Actor, Critic
 
 import sys
 import datetime
+import json
 
 from pursuit_msg.policy.myppo import myPPOPolicy
 from pursuit_msg.policy.msgnet import MsgNet
@@ -66,6 +67,8 @@ def get_args():
     # switch env
     parser.add_argument('--env', type=str, default=None)
 
+    # visualize special
+    parser.add_argument("--n_episode", type=int, default=10)
     args = parser.parse_args()
     return args
 
@@ -125,7 +128,7 @@ def test_ppo(args=get_args()):
         )
 
     # model
-    net = Net(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
+    net = MsgNet(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
     # net = Net(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
     if torch.cuda.is_available():
         actor = DataParallelNet(
@@ -147,6 +150,7 @@ def test_ppo(args=get_args()):
     policy = myPPOPolicy(
         num_agents=task_parameter["n_pursuers"],
         state_shape=args.state_shape,
+        device=args.device,
         actor=actor,
         critic=critic,
         optim=optim,
@@ -171,18 +175,36 @@ def test_ppo(args=get_args()):
         model = {k.replace(".net.module", ""): v for k, v in checkpoint.items()}
         policy.load_state_dict(model)
 
+        render_vdo_path = args.logdir
+        if render_vdo_path:
+            # find first unused number
+            cnt = 0
+            while os.path.exists(render_vdo_path):
+                cnt += 1
+                render_vdo_path = f"{args.logdir}-{cnt}"
+            os.makedirs(render_vdo_path)
+
         envs = DummyVectorEnv(
             [
-                lambda: my_env(render_mode="human", **task_parameter),
+                lambda: my_env(render_mode="human", 
+                               render_vdo_path=render_vdo_path, 
+                               **task_parameter),
             ]
         )
         envs.seed(args.seed)
 
         policy.eval()
         collector = Collector(policy, envs)
-        result = collector.collect(n_episode=10, render=args.render)
-        rews, lens = result["rews"], result["lens"]
-        print(f"Final reward: {rews.mean()}, length: {lens.mean()}")
+        result = collector.collect(n_episode=args.n_episode, render=args.render)
+        pprint.pprint(result)
+
+        result_json = {
+            k: v.tolist() if isinstance(v, np.ndarray) else v for k, v in result.items() 
+        }
+        with open(os.path.join(render_vdo_path, "summary.json"), "w") as f:
+            json.dump(result_json, f, indent=4)
+        # rews, lens = result["rews"], result["lens"]
+        # print(f"Final reward: {rews.mean()}, length: {lens.mean()}")
 
 
 if __name__ == "__main__":

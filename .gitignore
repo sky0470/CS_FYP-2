@@ -8,6 +8,7 @@
 *.pth
 *.pickle
 
+*.json
 log_file*
 log/
 quicktrain/
