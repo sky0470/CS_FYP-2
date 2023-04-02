@@ -137,8 +137,11 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
             self.aec_env.step(None)
 
         self.agents = self.aec_env.agents
-
         obs = np.array(list(observations.values()))
+
+        # reshape prev obs and noise
+        prev_obs = prev_obs.reshape(obs.shape) # originally hardcoded as (5, 3, 3, 5) (n_agents, obs_range, obs_range, obs_dims)
+
         dist = np.array([[-1 if i==j else self.cal_dist(o, obs[i]) for (j, o) in enumerate(obs)] for i in range(obs.shape[0])])
         order = dist.argsort()
         observations = np.array([np.vstack((obs[i][None,:], prev_obs[order[i][1:]])) for i in range( obs.shape[0])])
