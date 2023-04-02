@@ -40,9 +40,6 @@ def my_parallel_wrapper_fn_noise(env_fn, seed=None):
         noise_shape = kwargs.pop("noise_shape")
         assert has_noise, "this is noise env"
 
-        # num_noise_type = kwargs.pop("num_noise_type")
-        # num_noise_per_type = kwargs.pop("num_noise_per_type")
-        # num_noise_per_agent = kwargs.pop("num_noise_per_agent")
         env = env_fn(**kwargs)
         env = aec_to_parallel_wrapper_noise(env, seed,
                                             noise_shape=noise_shape)
@@ -50,9 +47,6 @@ def my_parallel_wrapper_fn_noise(env_fn, seed=None):
                                            has_noise=has_noise,
                                            noise_shape=noise_shape
         )
-                                        #    num_noise_type=num_noise_type, 
-                                        #    num_noise_per_type=num_noise_per_type, 
-                                        #    num_noise_per_agent=num_noise_per_agent)
         return env
 
     return par_fn
@@ -156,23 +150,23 @@ class aec_to_parallel_wrapper_noise(aec_to_parallel_wrapper):
         noise = noise.reshape(num_agents, -1) # noise: (num_agent, num_noise_per_agent)
         # noise.shape[1] should be same as abs(np.prod(self.noise_shape))
 
+        obs_noise = prev_obs
+        # apply noise to predator and prey dim
         if self.noise_shape == (-1, 1):
-            # apply noise to all obs type
-            # obs_noise = (prev_obs.T + noise).T # add old noise to old obs
-            # obs_noise = (obs.T + noise - 0.5).T # add old noise to new obs
-            obs_noise = prev_obs
-            for i in range(num_agents):
-                obs_noise[i, :, :, :] += noise[i, :]
-        else:
-            # apply noise to predator and prey dim
-            obs_noise = prev_obs
-            for i in range(num_agents):
-                obs_noise[i, :, :, :2] += noise[i, :]
-        
+            obs_noise[:, :, :, :] += noise[:, None, None, :]
+        elif self.noise_shape == (2,1):
+            obs_noise[:, :, :, :2] += noise[:, None, None, :]
+        elif self.noise_shape == (2, 9):
+            noise = noise.reshape(obs.shape[:-1]+(-1,)) # 5, 18 -> 5 3 3 2
+            obs_noise[:, :, :, :2] += noise
+        elif self.noise_shape == (-1, 9):
+            noise = noise.reshape(obs.shape[:-1]+(-1,)) # 5, 9 -> 5 3 3 2
+            obs_noise += noise
+
         dist = np.array([[-1 if i==j else self.cal_dist(o, obs[i]) for (j, o) in enumerate(obs)] for i in range(num_agents)])
         order = dist.argsort()
         # observations = np.array([np.vstack((obs[i][None,:], obs[order[i][1:]])) for i in range(num_agents)])
-        observations = np.array([np.vstack((obs[i][None,:], prev_obs[order[i][1:]])) for i in range(num_agents)])
+        observations = np.array([np.vstack((obs[i][None,:], obs_noise[order[i][1:]])) for i in range(num_agents)])
 
         rewards = np.array(list(rewards.values()))  # for CTDE
         # rewards = np.array(list(rewards.values())).sum() # for centralized

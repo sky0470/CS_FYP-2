@@ -115,9 +115,6 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
 
         # noise
         has_noise=False,
-        # num_noise_type=2,
-        # num_noise_per_type=1,
-        # num_noise_per_agent=None, # redefine later
         noise_shape=None # redefine later
         # note: only (2, 1), (-1, 1) are implemented, if has_noise is true
     )
@@ -162,9 +159,8 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
     # redefine task_param 
     task_parameter["catch_reward_ratio"] = args.catch_reward_ratio or [num for num in range(task_parameter["n_pursuers"] + 1)]
     task_parameter["noise_shape"] = tuple(args.noise_shape) if task_parameter["has_noise"] else 0
-    if task_parameter["noise_shape"] not in [(-1, 1), (2, 1), 0]:
+    if task_parameter["noise_shape"] not in [(-1, 1), (2, 1), (2, 9), (-1, 9), 0]:
         raise NotImplementedError("Please use (-1, 1), (2, 1) or 0")
-    # task_parameter["num_noise_per_agent"] = task_parameter["num_noise_type"] * task_parameter["num_noise_per_type"]
 
     env = my_env(**task_parameter)
     args.state_shape = env.observation_space.shape or env.observation_space.n
@@ -216,9 +212,6 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         state_shape=args.state_shape,
         device=args.device,
         num_actions=args.action_shape,
-        # num_noise_type=task_parameter["num_noise_type"],
-        # num_noise_per_type=task_parameter["num_noise_per_type"],
-        # num_noise_per_agent=task_parameter["num_noise_per_agent"],
         noise_shape=task_parameter["noise_shape"],
         actor=actor,
         critic=critic,
@@ -243,17 +236,11 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         policy, train_envs, VectorReplayBuffer(args.buffer_size, len(train_envs)),
         num_actions=args.action_shape,
         has_noise=task_parameter["has_noise"],
-        # num_noise_type=task_parameter["num_noise_type"],
-        # num_noise_per_type=task_parameter["num_noise_per_type"],
-        # num_noise_per_agent=task_parameter["num_noise_per_agent"],
         noise_shape=task_parameter["noise_shape"],
     )
     test_collector = MyCollector(policy, test_envs, 
         num_actions=args.action_shape,
         has_noise=task_parameter["has_noise"],
-        # num_noise_type=task_parameter["num_noise_type"],
-        # num_noise_per_type=task_parameter["num_noise_per_type"],
-        # num_noise_per_agent=task_parameter["num_noise_per_agent"],
         noise_shape=task_parameter["noise_shape"],
     )
     # train_collector.collect(n_step=args.batch_size * args.training_num)
@@ -320,9 +307,6 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         collector = MyCollector(policy, envs,
                                 num_actions=args.action_shape,
                                 has_noise=task_parameter["has_noise"],
-                                # num_noise_type=task_parameter["num_noise_type"],
-                                # num_noise_per_type=task_parameter["num_noise_per_type"],
-                                # num_noise_per_agent=task_parameter["num_noise_per_agent"],
                                 noise_shape=task_parameter["noise_shape"],
                                 )
         result = collector.collect(n_episode=1, render=None)

@@ -46,10 +46,10 @@ class NoisyActor(Actor):
         filter_noise: bool = False,
         noise_shape: Sequence[int] = 0,
     ) -> None:
-        super().__init__(preprocess_net, action_shape + int(abs(np.prod(noise_shape))) * 2, hidden_sizes, softmax_output, preprocess_net_output_dim, device)
+        super().__init__(preprocess_net, action_shape + int(abs(noise_shape[0])) * 2, hidden_sizes, softmax_output, preprocess_net_output_dim, device)
         self.device = device
         self.preprocess = preprocess_net
-        self.output_dim = int(abs(np.prod(action_shape))) + int(abs(np.prod(noise_shape))) * 2
+        self.output_dim = int(abs(np.prod(action_shape))) + int(abs(noise_shape[0])) * 2
         input_dim = getattr(preprocess_net, "output_dim", preprocess_net_output_dim)
         self.last = MLP(
             input_dim,  # type: ignore
