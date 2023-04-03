@@ -51,9 +51,15 @@ class NoisyActor(Actor):
         self.preprocess = preprocess_net
         self.output_dim = int(abs(np.prod(action_shape))) + int(abs(noise_shape[0])) * 2
         input_dim = getattr(preprocess_net, "output_dim", preprocess_net_output_dim)
-        self.last = MLP(
+        self.last_act = MLP(
             input_dim,  # type: ignore
-            self.output_dim,
+            int(abs(np.prod(action_shape))),
+            hidden_sizes,
+            device=self.device
+        )
+        self.last_noise = MLP(
+            input_dim,  # type: ignore
+            int(abs(noise_shape[0])) * 2,
             hidden_sizes,
             device=self.device
         )
@@ -70,8 +76,10 @@ class NoisyActor(Actor):
     ) -> Tuple[torch.Tensor, Any]:
         r"""Mapping: s -> Q(s, \*)."""
         logits, hidden = self.preprocess(obs, state)
-        logits = self.last(logits)
-        
+        logits_act = self.last_act(logits)
+        logits_noise = self.last_noise(logits)
+        logits = torch.concat([logits_act, logits_noise], -1)
+
         if self.filter_noise:
             # split into act and noise
             logits_act = logits[:, :self.action_shape]
