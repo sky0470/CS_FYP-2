@@ -80,6 +80,8 @@ def get_args():
     # train very fast
     parser.add_argument('--quick', default=False, action=argparse.BooleanOptionalAction)
 
+    parser.add_argument('--resume-path', type=str, default=None)
+
     args = parser.parse_args()
 
     # filter overrode args
@@ -243,7 +245,20 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         has_noise=task_parameter["has_noise"],
         noise_shape=task_parameter["noise_shape"],
     )
-    # train_collector.collect(n_step=args.batch_size * args.training_num)
+
+    if args.resume_path:
+        # load from existing checkpoint
+        print(f"Loading agent under {args.resume_path}")
+        ckpt_path = os.path.join(args.resume_path)
+        if os.path.exists(ckpt_path):
+            checkpoint = torch.load(ckpt_path, map_location=args.device)
+            policy.load_state_dict(checkpoint["model"])
+            policy.optim.load_state_dict(checkpoint["optim"])
+            print("Successfully restore policy and optim.")
+        else:
+            print("Fail to restore policy and optim.")
+    train_collector.collect(n_step=args.batch_size * args.training_num)
+
     train_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     # log
     log_path = os.path.join(args.logdir, args.task, "ppo", train_datetime)
@@ -260,6 +275,7 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
     logger = WandbLogger(project="pursuit_ppo" if not args.quick else "pursuit_test", 
                          entity="csfyp", 
                          config=config, 
+                         save_interval=5,
                         )
     writer = SummaryWriter(log_path)
     writer.add_text("args", str(args))
@@ -278,6 +294,20 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
     def stop_fn(mean_rewards):
         return mean_rewards >= args.reward_threshold
 
+    def save_checkpoint_fn(epoch, env_step, gradient_step):
+        # see also: https://pytorch.org/tutorials/beginner/saving_loading_models.html
+        checkpointpth = os.path.join(log_path)
+        if not os.path.exists(checkpointpth):
+            os.makedirs(checkpointpth)
+        ckpt_path = os.path.join(log_path, f"checkpoint_{epoch}.pth")
+        torch.save(
+            {
+                "model": policy.state_dict(),
+                "optim": optim.state_dict(),
+            }, ckpt_path
+        )
+        return ckpt_path
+
     # trainer
     result = onpolicy_trainer(
         policy,
@@ -291,6 +321,7 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         step_per_collect=args.step_per_collect,
         stop_fn=stop_fn,
         save_best_fn=save_best_fn,
+        save_checkpoint_fn=save_checkpoint_fn,
         logger=logger,
     )
 
