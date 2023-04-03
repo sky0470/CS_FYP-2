@@ -65,9 +65,6 @@ class MyCollector(object):
         num_actions: int = 0,
         has_noise: bool = False,
         noise_shape: Sequence[int] = 0,
-        # num_noise_type: int = 0,
-        # num_noise_per_type: int = 0,
-        # num_noise_per_agent: int = 0,
     ) -> None:
         super().__init__()
         if isinstance(env, gym.Env) and not hasattr(env, "__len__"):
@@ -86,11 +83,8 @@ class MyCollector(object):
         self.num_actions = num_actions
         self.has_noise = has_noise
         self.noise_shape = noise_shape
-        self.num_noise_per_agent = abs(np.prod(noise_shape))
-        # self.num_noise_type = num_noise_type
-        # self.num_noise_per_type = num_noise_per_type
-        # self.num_noise_per_agent = num_noise_per_agent
-        # avoid creating attribute outside __init__
+        self.num_norm = 0 if noise_shape is None else abs(noise_shape[0])
+        self.num_noise = 0 if noise_shape is None else abs(np.prod(noise_shape))
         self.reset(False)
 
     def _assign_buffer(self, buffer: Optional[ReplayBuffer]) -> None:
@@ -322,12 +316,13 @@ class MyCollector(object):
                 # log all mu sig instead of update
                 if self.has_noise:
                     logits = result["logits"].detach().cpu().numpy().astype("float")
-                    noise_mu = logits[:, :, self.num_actions:self.num_actions + self.num_noise_per_agent]
-                    noise_sig = logits[:, :, self.num_actions + self.num_noise_per_agent:]
-                    # noise_mu, noise_sig = result["logits"][:, :, 5].detach().cpu().numpy().astype("float"), result["logits"][:, :, 6].detach().cpu().numpy().astype("float")
+                    noise_mu = logits[:, :, self.num_actions:self.num_actions + self.num_norm]
+                    noise_sig = logits[:, :, self.num_actions + self.num_norm:]
                 else:
                     noise_mu, noise_sig = np.zeros(result["logits"].shape[:2]), np.zeros(result["logits"].shape[:2])
-                if len(cycle_noise_mus) == 0:
+
+                # if True: # uncomment it when it visualizing
+                if len(cycle_noise_mus) == 0: # uncommit it when training
                     cycle_noise_mus.append(noise_mu)
                     cycle_noise_sigs.append(noise_sig)
                 else:
