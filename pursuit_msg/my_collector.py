@@ -65,6 +65,7 @@ class MyCollector(object):
         num_actions: int = 0,
         has_noise: bool = False,
         noise_shape: Sequence[int] = 0,
+        visualize: bool = False,
     ) -> None:
         super().__init__()
         if isinstance(env, gym.Env) and not hasattr(env, "__len__"):
@@ -85,6 +86,7 @@ class MyCollector(object):
         self.noise_shape = noise_shape
         self.num_norm = 0 if noise_shape is None else abs(noise_shape[0])
         self.num_noise = 0 if noise_shape is None else abs(np.prod(noise_shape))
+        self.visualize = visualize
         self.reset(False)
 
     def _assign_buffer(self, buffer: Optional[ReplayBuffer]) -> None:
@@ -287,6 +289,8 @@ class MyCollector(object):
         episode_start_indices = []
         cycle_noise_mus = [] # array of mus at each cycle within 1 episode
         cycle_noise_sigs = [] # array of sigs at each cycle within 1 episode
+        cycle_rews = [] # array of (un-accumulated) rewards at each cycle within 1 episode
+        episode_rews2 = [] # 
 
         while True:
             assert len(self.data) == len(ready_env_ids)
@@ -321,8 +325,7 @@ class MyCollector(object):
                 else:
                     noise_mu, noise_sig = np.zeros(result["logits"].shape[:2]), np.zeros(result["logits"].shape[:2])
 
-                # if True: # uncomment it when it visualizing
-                if len(cycle_noise_mus) == 0: # uncommit it when training
+                if self.visualize or len(cycle_noise_mus) == 0: 
                     cycle_noise_mus.append(noise_mu)
                     cycle_noise_sigs.append(noise_sig)
                 else:
@@ -359,6 +362,12 @@ class MyCollector(object):
                 terminated = np.logical_and(done, ~truncated)
             else:
                 raise ValueError()
+
+            if self.visualize or len(cycle_rews) == 0: 
+                cycle_rews.append(rew)
+            else:
+                cycle_rews[0] = rew
+            
 
             self.data.update(
                 obs_next=obs_next,
@@ -404,6 +413,9 @@ class MyCollector(object):
                 episode_start_indices.append(ep_idx[env_ind_local])
                 cycle_noise_mus = []
                 cycle_noise_sigs = []
+                episode_rews2.append(np.array(cycle_rews))
+                cycle_rews = []
+                
                 # now we copy obs_next to obs, but since there might be
                 # finished episodes, we have to reset finished envs first.
                 self._reset_env_with_ids(
@@ -457,19 +469,21 @@ class MyCollector(object):
 
             noise_mus = np.concatenate(episode_noise_mus, axis=1)
             noise_sigs = np.concatenate(episode_noise_sigs, axis=1)
+            rews2 = np.concatenate(episode_rews2, axis=1)
             rew_mean, rew_std = rews.mean(), rews.std()
             axis_tuple = tuple(range(noise_mus.ndim - 1)) # tuple that contains all axis except the last one
             noise_mu_mean, noise_mu_std = noise_mus.mean(axis=axis_tuple), noise_mus.std(axis=axis_tuple)
             noise_sig_mean, noise_sig_std = noise_sigs.mean(axis=axis_tuple), noise_sigs.std(axis_tuple)
             len_mean, len_std = lens.mean(), lens.std()
         else:
-            rews, noise_mus, noise_sigs, lens, idxs = np.array([]), np.array([]), np.array([]), np.array([], int), np.array([], int)
+            rews, noise_mus, noise_sigs, rews2, lens, idxs = np.array([]), np.array([]), np.array([]), np.array([]), np.array([], int), np.array([], int)
             rew_mean = rew_std = len_mean = len_std = 0
             noise_mu_mean = noise_mu_std = noise_sig_mean = noise_sig_std = 0
 
         return {
             "n/ep": episode_count,
             "n/st": step_count,
+            "rews_detail": rews2,
             "rews": rews,
             "noises_mu": noise_mus,
             "noises_sig": noise_sigs,
