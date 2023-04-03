@@ -38,11 +38,13 @@ def my_parallel_wrapper_fn_noise(env_fn, seed=None):
     def par_fn(**kwargs):
         has_noise = kwargs.pop("has_noise")
         noise_shape = kwargs.pop("noise_shape")
+        apply_noise = kwargs.pop("apply_noise")
         assert has_noise, "this is noise env"
 
         env = env_fn(**kwargs)
         env = aec_to_parallel_wrapper_noise(env, seed,
-                                            noise_shape=noise_shape)
+                                            noise_shape=noise_shape,
+                                            apply_noise=apply_noise)
         env = MultiDiscreteToDiscreteNoise(env,
                                            has_noise=has_noise,
                                            noise_shape=noise_shape
@@ -54,7 +56,7 @@ def my_parallel_wrapper_fn_noise(env_fn, seed=None):
 
 # from utils.conversion.py
 class aec_to_parallel_wrapper_noise(aec_to_parallel_wrapper):
-    def __init__(self, aec_env, seed=None, noise_shape=0):
+    def __init__(self, aec_env, seed=None, noise_shape=0, apply_noise=1):
         aec_env.reset()
         self.observation_space_ = batch_space(
             batch_space(
@@ -64,6 +66,7 @@ class aec_to_parallel_wrapper_noise(aec_to_parallel_wrapper):
         )
         super().__init__(aec_env, seed)
         self.noise_shape = noise_shape
+        self.apply_noise = apply_noise
 
     @property
     def observation_space(self):
@@ -152,7 +155,9 @@ class aec_to_parallel_wrapper_noise(aec_to_parallel_wrapper):
 
         obs_noise = prev_obs
         # apply noise to predator and prey dim
-        if self.noise_shape == (-1, 1):
+        if not self.apply_noise:
+            pass
+        elif self.noise_shape == (-1, 1):
             obs_noise[:, :, :, :] += noise[:, None, None, :]
         elif self.noise_shape == (2,1):
             obs_noise[:, :, :, :2] += noise[:, None, None, :]
