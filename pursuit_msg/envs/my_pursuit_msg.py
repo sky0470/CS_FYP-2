@@ -41,6 +41,10 @@ ActionDict = Dict[AgentID, ActionType]
 # from utils.conversion.py
 def my_parallel_wrapper_fn_message(env_fn, seed=None):
     def par_fn(**kwargs):
+        # remove from kwagrs
+        has_noise = kwargs.pop("has_noise")
+        noise_shape = kwargs.pop("noise_shape")
+
         env = env_fn(**kwargs)
         env = aec_to_parallel_wrapper_message(env, seed)
         env = MultiDiscreteToDiscreteMsg(env)

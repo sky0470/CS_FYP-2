@@ -160,9 +160,10 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
 
     # redefine task_param 
     task_parameter["catch_reward_ratio"] = args.catch_reward_ratio or [num for num in range(task_parameter["n_pursuers"] + 1)]
-    task_parameter["noise_shape"] = tuple(args.noise_shape) if task_parameter["has_noise"] else 0
-    if task_parameter["noise_shape"] not in [(-1, 1), (2, 1), (2, 9), (-1, 9), 0]:
-        raise NotImplementedError("Please use (-1, 1), (2, 1) or 0")
+    task_parameter["noise_shape"] = tuple(args.noise_shape) if task_parameter["has_noise"] else None
+    implemented_noises = [(-1, 1), (2, 1), (2, 9), (-1, 9), None]
+    if task_parameter["noise_shape"] not in implemented_noises:
+        raise NotImplementedError(f"Please use noise_shape={implemented_noises}")
 
     env = my_env(**task_parameter)
     args.state_shape = env.observation_space.shape or env.observation_space.n
