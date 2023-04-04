@@ -67,6 +67,7 @@ class NoisyActor(Actor):
         self.softmax_output = softmax_output
         self.filter_noise = filter_noise
         self.action_shape = action_shape
+        self.num_norm = 0 if noise_shape is None else abs(noise_shape[0])
 
     def forward(
         self,
@@ -84,6 +85,7 @@ class NoisyActor(Actor):
             # split into act and noise
             logits_act = logits[:, :self.action_shape]
             logits_noise = logits[:, self.action_shape:]
+            logits_noise[:, self.num_norm:] = torch.sigmoid((logits_noise[:, self.num_norm:]) / 5) * 5
 
             if self.softmax_output:
                 # only apply to action

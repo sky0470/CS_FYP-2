@@ -131,6 +131,7 @@ def get_args():
     # task param
     parser.add_argument('--catch-reward-ratio', type=float, nargs="+", default=None)
     parser.add_argument('--noise-shape', type=int, nargs=2, default=(-1, 1))
+    parser.add_argument('--apply-noise', type=int, default=1)
 
     # switch env
     parser.add_argument('--env', type=str, default=None)
@@ -163,7 +164,8 @@ def test_ppo(args=get_args()):
 
         # noise
         has_noise=False,
-        noise_shape=None # redefine later
+        noise_shape=None, # redefine later
+        apply_noise=args.apply_noise,
         # note: only (2, 1), (-1, 1) are implemented, if has_noise is true
     )
 
@@ -262,8 +264,8 @@ def test_ppo(args=get_args()):
 
     if __name__ == "__main__":
         checkpoint = torch.load(args.path, map_location=args.device)
-        model = {k.replace(".net.module", ""): v for k, v in checkpoint.items()}
-        policy.load_state_dict(model)
+        # model = {k.replace(".net.module", ""): v for k, v in checkpoint.items()}
+        policy.load_state_dict(checkpoint["model"])
 
         render_vdo_path = args.logdir
         if render_vdo_path:

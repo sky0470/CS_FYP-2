@@ -233,14 +233,16 @@ class myPPOPolicy(PPOPolicy):
             # pack all mu and sig tgt
             noise_shape = logits.shape[:2] + (self.num_norm,)
             logits_noise_mu = logits[:, :, num_actions:num_actions + self.num_norm].reshape(logits.shape[0], -1)
-            logits_noise_sig = torch.clamp(logits[:, :, num_actions + self.num_norm:], min=-3, max=-0.5).exp().reshape(logits.shape[0], -1)
+            logits_noise_sig = logits[:, :, num_actions + self.num_norm:].reshape(logits.shape[0], -1)
             logits_noise = (logits_noise_mu, logits_noise_sig)
             dist_2 = self.dist_2_fn(*logits_noise)
             # if self._deterministic_eval and not self.training:
-            #     act_noise = logits_noise[0]
+            #     act_noise = logits_noise_mu.unsqueeze(0).repeat(self.noise_shape[1], *([1]*logits_noise_mu.ndim))
             # else:
             #     act_noise = dist_2.sample(torch.tensor([1]))
-            act_noise = dist_2.sample(torch.tensor([self.noise_shape[1]]))
+
+            act_noise = logits_noise_mu.unsqueeze(0).repeat(self.noise_shape[1], *([1]*logits_noise_mu.ndim))
+            # act_noise = dist_2.sample(torch.tensor([self.noise_shape[1]]))
             act_noise = to_numpy(act_noise) # act_noise shape = (noise_per_norm, btz, num_agent*num_norm)
             act_noise = act_noise.transpose((1,2,0)) # before reshape : (btz, num_agent*num_norm, noise_per_norm)
             act_noise = act_noise.reshape(act_noise.shape[0], -1)
