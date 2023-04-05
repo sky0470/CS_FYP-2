@@ -123,6 +123,28 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         # note: only (2, 1), (-1, 1) are implemented, if has_noise is true
     )
 
+    if args.seed is None:
+        args.seed = int(np.random.rand() * 100000)
+        args_overrode.seed = args.seed
+
+    if args.resume_path:
+        # load from existing checkpoint
+        print(f"Loading agent under {args.resume_path}")
+        if os.path.exists(ckpt_path):
+            checkpoint = torch.load(args.resume_path, map_location=args.device)
+            if "args" in checkpoint:
+                args = checkpoint.args
+                args.device = "cuda" if torch.cuda.is_available() else "cpu"
+                for k, v in args_overrode:
+                    args[k] = v
+            if "task_parameter" in checkpoint:
+                task_parameter = checkpoint.task_parameter
+                task_parameter.apply_noise = args.apply_noise
+
+        else:
+            print("Fail to restore policy and optim.")
+            exit()
+
     # switch env
     print(f"env: {args.env}")
     if args.env is None:
@@ -140,9 +162,6 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         task_parameter["has_noise"] = True
     else:
         raise NotImplementedError(f"env '{args.env}' is not implemented")
-
-    if args.seed is None:
-        args.seed = int(np.random.rand() * 100000)
 
     print(f"quicktrain: {args.quick}")
     # train very fast
@@ -193,17 +212,17 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
     test_envs.seed(args.seed)
     # model
     net = MsgNet(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
-    if torch.cuda.is_available() and False: # always don't use DataParallelNet until multi-gpu is configured
-        actor = DataParallelNet(
-            Actor(net, args.action_shape, device=None).to(args.device)
-        )
-        critic = DataParallelNet(Critic(net, device=None).to(args.device))
+    if task_parameter["has_noise"]:
+        actor = NoisyActor(
+            net,
+            args.action_shape,
+            device=args.device,
+            filter_noise=True,
+            noise_shape=task_parameter["noise_shape"],
+        ).to(args.device)
     else:
-        if task_parameter["has_noise"]:
-            actor = NoisyActor(net, args.action_shape, device=args.device, filter_noise=True, noise_shape=task_parameter["noise_shape"]).to(args.device)
-        else:
-            actor = Actor(net, args.action_shape, device=args.device).to(args.device)
-        critic = Critic(net, device=args.device).to(args.device)
+        actor = Actor(net, args.action_shape, device=args.device).to(args.device)
+    critic = Critic(net, device=args.device).to(args.device)
     actor_critic = ActorCritic(actor, critic)
     # orthogonal initialization
     for m in actor_critic.modules():
@@ -255,16 +274,11 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
     )
 
     if args.resume_path:
-        # load from existing checkpoint
-        print(f"Loading agent under {args.resume_path}")
-        ckpt_path = os.path.join(args.resume_path)
-        if os.path.exists(ckpt_path):
-            checkpoint = torch.load(ckpt_path, map_location=args.device)
-            policy.load_state_dict(checkpoint["model"])
-            policy.optim.load_state_dict(checkpoint["optim"])
-            print("Successfully restore policy and optim.")
-        else:
-            print("Fail to restore policy and optim.")
+        policy.load_state_dict(checkpoint.model)
+        policy.ret_rms = checkpoint.rms
+        policy.optim.load_state_dict(checkpoint.optim)
+        print("Successfully restore policy and optim.")
+
     train_collector.collect(n_step=args.batch_size * args.training_num)
 
     train_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -297,23 +311,34 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
     print("-" * 20)
 
     def save_best_fn(policy):
-        torch.save(policy.state_dict(), os.path.join(log_path, "policy.pth"))
+        torch.save(
+            {
+                "model": policy.state_dict(),
+                "optim": optim.state_dict(),
+                "rms": policy.ret_rms,
+                "args": args,
+                "task_parameter": task_parameter,
+            },
+            os.path.join(log_path, "policy.pth"),
+        )
+        logger.wandb_run.save(os.path.join(log_path, "policy.pth"), base_path=log_path)
 
     def stop_fn(mean_rewards):
         return mean_rewards >= args.reward_threshold
 
     def save_checkpoint_fn(epoch, env_step, gradient_step):
-        # see also: https://pytorch.org/tutorials/beginner/saving_loading_models.html
-        checkpointpth = os.path.join(log_path)
-        if not os.path.exists(checkpointpth):
-            os.makedirs(checkpointpth)
-        ckpt_path = os.path.join(log_path, f"checkpoint_{epoch}.pth")
+        ckpt_path = os.path.join(log_path, f"checkpoint_{epoch}.pkl")
         torch.save(
             {
                 "model": policy.state_dict(),
                 "optim": optim.state_dict(),
-            }, ckpt_path
+                "rms": policy.ret_rms,
+                "args": args,
+                "task_parameter": task_parameter,
+            },
+            ckpt_path,
         )
+        logger.wandb_run.save(ckpt_path, base_path=log_path)
         return ckpt_path
 
     # trainer
