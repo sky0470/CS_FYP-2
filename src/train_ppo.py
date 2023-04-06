@@ -125,21 +125,21 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
 
     if args.seed is None:
         args.seed = int(np.random.rand() * 100000)
-        args_overrode.seed = args.seed
+        args_overrode["seed"] = args.seed
 
     if args.resume_path:
         # load from existing checkpoint
         print(f"Loading agent under {args.resume_path}")
-        if os.path.exists(ckpt_path):
+        if os.path.exists(args.resume_path):
             checkpoint = torch.load(args.resume_path, map_location=args.device)
             if "args" in checkpoint:
-                args = checkpoint.args
+                args = checkpoint["args"]
                 args.device = "cuda" if torch.cuda.is_available() else "cpu"
-                for k, v in args_overrode:
-                    args[k] = v
+                for k, v in args_overrode.items():
+                    setattr(args, k, v)
             if "task_parameter" in checkpoint:
-                task_parameter = checkpoint.task_parameter
-                task_parameter.apply_noise = args.apply_noise
+                task_parameter = checkpoint["task_parameter"]
+                task_parameter["apply_noise"] = args.apply_noise
 
         else:
             print("Fail to restore policy and optim.")
@@ -274,9 +274,9 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
     )
 
     if args.resume_path:
-        policy.load_state_dict(checkpoint.model)
-        policy.ret_rms = checkpoint.rms
-        policy.optim.load_state_dict(checkpoint.optim)
+        policy.load_state_dict(checkpoint["model"])
+        policy.ret_rms = checkpoint["rms"]
+        policy.optim.load_state_dict(checkpoint["optim"])
         print("Successfully restore policy and optim.")
 
     train_collector.collect(n_step=args.batch_size * args.training_num)
