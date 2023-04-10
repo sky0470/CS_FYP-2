@@ -132,6 +132,7 @@ def get_args():
     parser.add_argument('--catch-reward-ratio', type=float, nargs="+", default=None)
     parser.add_argument('--noise-shape', type=int, nargs=2, default=(-1, 1))
     parser.add_argument('--apply-noise', type=int, default=1)
+    parser.add_argument("--obs-noise-norm", type=int, default=0)
 
     # switch env
     parser.add_argument('--env', type=str, default=None)
@@ -166,6 +167,7 @@ def test_ppo(args=get_args()):
         has_noise=False,
         noise_shape=None, # redefine later
         apply_noise=args.apply_noise,
+        obs_noise_norm=args.obs_noise_norm,
         # note: only (2, 1), (-1, 1) are implemented, if has_noise is true
     )
 
@@ -235,6 +237,11 @@ def test_ppo(args=get_args()):
             torch.nn.init.orthogonal_(m.weight)
             torch.nn.init.zeros_(m.bias)
     optim = torch.optim.Adam(actor_critic.parameters(), lr=args.lr)
+
+    if task_parameter["has_noise"] and not args.apply_noise:
+            for p in actor_critic.actor.last_noise.parameters():
+                p.requires_grad=False
+
     dist = torch.distributions.Categorical
     policy = myPPOPolicy(
         num_agents=task_parameter["n_pursuers"],

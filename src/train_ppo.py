@@ -74,6 +74,7 @@ def get_args():
     parser.add_argument('--catch-reward-ratio', type=float, nargs="+", default=None)
     parser.add_argument('--noise-shape', type=int, nargs=2, default=(-1, 1))
     parser.add_argument('--apply-noise', type=int, default=1)
+    parser.add_argument("--obs-noise-norm", type=int, default=0)
 
     # switch env
     parser.add_argument('--env', type=str, default=None)
@@ -119,7 +120,8 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         # noise
         has_noise=False,
         noise_shape=None, # redefine later
-        apply_noise=args.apply_noise
+        apply_noise=args.apply_noise,
+        obs_noise_norm=args.obs_noise_norm,
         # note: only (2, 1), (-1, 1) are implemented, if has_noise is true
     )
 
