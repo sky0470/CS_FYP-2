@@ -74,6 +74,7 @@ def get_args():
     parser.add_argument('--catch-reward-ratio', type=float, nargs="+", default=None)
     parser.add_argument('--noise-shape', type=int, nargs=2, default=(-1, 1))
     parser.add_argument('--apply-noise', type=int, default=1)
+    parser.add_argument("--obs-noise-norm", type=int, default=0)
 
     # switch env
     parser.add_argument('--env', type=str, default=None)
@@ -119,7 +120,8 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         # noise
         has_noise=False,
         noise_shape=None, # redefine later
-        apply_noise=args.apply_noise
+        apply_noise=args.apply_noise,
+        obs_noise_norm=args.obs_noise_norm,
         # note: only (2, 1), (-1, 1) are implemented, if has_noise is true
     )
 
@@ -132,6 +134,7 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         print(f"Loading agent under {args.resume_path}")
         if os.path.exists(args.resume_path):
             checkpoint = torch.load(args.resume_path, map_location=args.device)
+            """ can be deleted
             if "args" in checkpoint:
                 args = checkpoint["args"]
                 args.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -140,6 +143,7 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
             if "task_parameter" in checkpoint:
                 task_parameter = checkpoint["task_parameter"]
                 task_parameter["apply_noise"] = args.apply_noise
+            """
 
         else:
             print("Fail to restore policy and optim.")
