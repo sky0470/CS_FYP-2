@@ -7,6 +7,7 @@
 *.pt
 *.pth
 *.pickle
+*.pkl
 
 *.json
 log_file*

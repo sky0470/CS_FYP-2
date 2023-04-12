@@ -134,6 +134,7 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         print(f"Loading agent under {args.resume_path}")
         if os.path.exists(args.resume_path):
             checkpoint = torch.load(args.resume_path, map_location=args.device)
+            """ can be deleted
             if "args" in checkpoint:
                 args = checkpoint["args"]
                 args.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -142,6 +143,7 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
             if "task_parameter" in checkpoint:
                 task_parameter = checkpoint["task_parameter"]
                 task_parameter["apply_noise"] = args.apply_noise
+            """
 
         else:
             print("Fail to restore policy and optim.")
