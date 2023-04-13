@@ -7,6 +7,7 @@ from .envs.my_pursuit_grid_loc import my_parallel_env_grid_loc
 from .envs.my_pursuit_full import my_parallel_env_full
 from .envs.my_pursuit_ic3 import my_parallel_env_ic3
 from .envs.my_pursuit_noise import my_parallel_env_noise
+from .envs.my_pursuit_toggle import my_parallel_env_toggle
 
 __version__ = importlib.metadata.version(__package__ or __name__)
 print(f"Currently using {__package__} {colored(f'v{__version__}', 'blue')}")

@@ -39,7 +39,7 @@ ActionDict = Dict[AgentID, ActionType]
 
 
 # from utils.conversion.py
-def my_parallel_wrapper_fn_message(env_fn, seed=None):
+def my_parallel_wrapper_fn_toggle(env_fn, seed=None):
     def par_fn(**kwargs):
         # remove from kwagrs
         has_noise = kwargs.pop("has_noise")
@@ -49,7 +49,7 @@ def my_parallel_wrapper_fn_message(env_fn, seed=None):
         assert not has_noise, "this is not noise env"
 
         env = env_fn(**kwargs)
-        env = aec_to_parallel_wrapper_message(env, seed)
+        env = aec_to_parallel_wrapper_toggle(env, seed)
         env = MultiDiscreteToDiscreteMsg(env)
         return env
 
@@ -57,7 +57,7 @@ def my_parallel_wrapper_fn_message(env_fn, seed=None):
 
 
 # from utils.conversion.py
-class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
+class aec_to_parallel_wrapper_toggle(aec_to_parallel_wrapper):
     def __init__(self, aec_env, seed=None):
         aec_env.reset()
         self.observation_space_ = batch_space(
@@ -107,7 +107,8 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
     def step(self, actions):
         (actions, prev_obs) = actions
         actions = actions.astype(int)
-        prev_obs = prev_obs.reshape([5,3,3,5])
+        toggle = actions // 5
+        actions = actions % 5
         actions = dict(zip(self.aec_env.agents, actions))
 
         rewards = defaultdict(int)
@@ -149,6 +150,10 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
         # reshape prev obs and noise
         prev_obs = prev_obs.reshape(obs.shape) # originally hardcoded as (5, 3, 3, 5) (n_agents, obs_range, obs_range, obs_dims)
 
+        for idx, t in enumerate(toggle):
+            if t:
+                prev_obs[idx] = 0
+
         dist = np.array([[-1 if i==j else self.cal_dist(o, obs[i]) for (j, o) in enumerate(obs)] for i in range(obs.shape[0])])
         order = dist.argsort()
         observations = np.array([np.vstack((obs[i][None,:], prev_obs[order[i][1:]])) for i in range( obs.shape[0])])
@@ -166,4 +171,4 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
 
 # from sisl.pursuit.pursuit.py
 # my_parallel_env = my_parallel_wrapper_fn(pursuit_v4.env, seed=SEED)
-my_parallel_env_message = my_parallel_wrapper_fn_message(pursuit_v4.env)
+my_parallel_env_toggle = my_parallel_wrapper_fn_toggle(pursuit_v4.env)

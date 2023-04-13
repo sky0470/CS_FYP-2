@@ -123,6 +123,7 @@ class myPPOPolicy(PPOPolicy):
                 loss = (
                     clip_loss + self._weight_vf * vf_loss - self._weight_ent * ent_loss
                 )
+                print({vf_loss: vf_loss, clip_loss: clip_loss})
                 self.optim.zero_grad()
                 loss.backward()
                 if self._grad_norm:  # clip large gradient
@@ -311,9 +312,10 @@ class myPPOPolicy(PPOPolicy):
                 obs_next=np.expand_dims(buffer.obs_next[:, i], axis=1),
                 act = buffer_act[:, i],
                 # act_noise = buffer.act[:, i+1],
-                act_noise = None if not self.num_noise else buffer.act[:, 1 + i * self.num_noise:1 + (i + 1) * self.num_noise],
+                act_noise = buffer_act[:,i] if not self.num_noise else buffer.act[:, 1 + i * self.num_noise:1 + (i + 1) * self.num_noise],
                 #act_noise = np.expand_dims(buffer.act[:, i+1], axis=1)
             )
+            print(_buffer_batch.act_noise)
             _buffer = ReplayBuffer(
                 size=buffer.maxsize,
                 stack_num=buffer.options["stack_num"],
@@ -321,6 +323,7 @@ class myPPOPolicy(PPOPolicy):
                 save_only_last_obs=buffer.options["save_only_last_obs"],
                 sample_avail=buffer.options["sample_avail"],
             )
+            print(_buffer_batch)
             for b in _buffer_batch:
                 _buffer.add(b)
 
