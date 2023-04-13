@@ -10,13 +10,16 @@ class MultiDiscreteToDiscreteMsg(gym.ActionWrapper):
     :param gym.Env env: gym environment with multidiscrete action space.
     """
 
-    def __init__(self, env: gym.Env) -> None:
+    def __init__(self, 
+                 env: gym.Env,
+                 num_actions=5,
+                 ) -> None:
         super().__init__(env)
         assert isinstance(env.action_space, gym.spaces.MultiDiscrete)
         nvec = env.action_space.nvec # 1D vec with len=num_agents, value=num_actions
         assert nvec.ndim == 1
         self.num_agents = len(nvec)
-        self.num_actions = nvec[0]
+        self.num_actions = num_actions
         self.bases_arr = self.num_actions ** np.arange(self.num_agents - 1, -1, -1)
         self.action_space = gym.spaces.Discrete(np.prod(nvec))
 
@@ -44,6 +47,7 @@ class MultiDiscreteToDiscreteNoise(gym.ActionWrapper):
     """
 
     def __init__(self, env: gym.Env, 
+                 num_actions = 5,
                  has_noise: bool = False,
                  noise_shape: Sequence[int] = 0) -> None:
                 #  num_noise_type: int = 0, 
@@ -54,7 +58,7 @@ class MultiDiscreteToDiscreteNoise(gym.ActionWrapper):
         nvec = env.action_space.nvec # 1D vec with len=num_agents, value=num_actions
         assert nvec.ndim == 1
         self.num_agents = len(nvec)
-        self.num_actions = nvec[0]
+        self.num_actions = num_actions,
         self.bases_arr = self.num_actions ** np.arange(self.num_agents - 1, -1, -1)
 
         self.has_noise = has_noise

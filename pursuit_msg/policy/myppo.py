@@ -76,7 +76,6 @@ class myPPOPolicy(PPOPolicy):
                 # calculate loss for actor
                 b = self(minibatch)
                 dist = b.dist
-                dist_2 = b.dist_2
                 if self._norm_adv:
                     mean, std = minibatch.adv.mean(), minibatch.adv.std()
                     minibatch.adv = (minibatch.adv - mean) / (
@@ -85,6 +84,7 @@ class myPPOPolicy(PPOPolicy):
                 if not self.num_noise:
                     ratio = dist.log_prob(torch.unsqueeze(minibatch.act, 1)) - minibatch.logp_old  # modified
                 else:
+                    dist_2 = b.dist_2
                     if self.noise_shape[1] == 9:
                         b_act_noise = minibatch.act_noise.reshape(minibatch.act_noise.shape[0], self.num_norm, -1).permute(2, 0, 1) # noise_per_norm, btz, num_norm, 
                         d_2_log_prob = b.dist_2.log_prob(b_act_noise).sum(0)
@@ -119,11 +119,13 @@ class myPPOPolicy(PPOPolicy):
                 else:
                     vf_loss = (minibatch.returns - value).pow(2).mean()
                 # calculate regularization and overall loss
-                ent_loss = dist.entropy().mean() + dist_2.entropy().mean()
+                if self.num_noise:
+                    ent_loss = dist.entropy().mean() + dist_2.entropy().mean()
+                else:
+                    ent_loss = dist.entropy().mean()
                 loss = (
                     clip_loss + self._weight_vf * vf_loss - self._weight_ent * ent_loss
                 )
-                print({vf_loss: vf_loss, clip_loss: clip_loss})
                 self.optim.zero_grad()
                 loss.backward()
                 if self._grad_norm:  # clip large gradient
@@ -257,13 +259,14 @@ class myPPOPolicy(PPOPolicy):
             obs = obs.reshape(obs.shape[0], -1)
 
             act_ = np.concatenate((act_[:, None], act_noise, obs), 1)
+            return Batch(logits=logits, act=act_, state=state_ret, dist=dist, dist_2=dist_2)
         else: # no noise
             act_ = np.concatenate((act_[:, None], batch.obs[:, :, 0].reshape(batch.obs.shape[0], -1) ),1)
             dist_2 = None
+            return Batch(logits=logits, act=act_, state=state_ret, dist=dist, dist_2=dist)
 
         # act_ shape = btz, 6 -> 6 = 1 + 5, combined act + noise for 0..4
         # logits shape = btz, agent, 7 -> 7 = 5 + 2, logit for act + (mean, sig) for noise
-        return Batch(logits=logits, act=act_, state=state_ret, dist=dist, dist_2=dist_2)
 
     # from base.py
     def update(
@@ -312,10 +315,10 @@ class myPPOPolicy(PPOPolicy):
                 obs_next=np.expand_dims(buffer.obs_next[:, i], axis=1),
                 act = buffer_act[:, i],
                 # act_noise = buffer.act[:, i+1],
+                # use action as place holder to maintain shape for no noise
                 act_noise = buffer_act[:,i] if not self.num_noise else buffer.act[:, 1 + i * self.num_noise:1 + (i + 1) * self.num_noise],
                 #act_noise = np.expand_dims(buffer.act[:, i+1], axis=1)
             )
-            print(_buffer_batch.act_noise)
             _buffer = ReplayBuffer(
                 size=buffer.maxsize,
                 stack_num=buffer.options["stack_num"],
@@ -323,7 +326,6 @@ class myPPOPolicy(PPOPolicy):
                 save_only_last_obs=buffer.options["save_only_last_obs"],
                 sample_avail=buffer.options["sample_avail"],
             )
-            print(_buffer_batch)
             for b in _buffer_batch:
                 _buffer.add(b)
 
@@ -347,7 +349,8 @@ class myPPOPolicy(PPOPolicy):
                     axis=1,
                 ),
                 act = batch_act[:, i],
-                act_noise = None if not self.num_noise else batch.act[:, 1 + i * self.num_noise:1 + (i + 1) * self.num_noise],
+                # use action as place holder to maintain shape for no noise
+                act_noise = batch_act[:, i] if not self.num_noise else batch.act[:, 1 + i * self.num_noise:1 + (i + 1) * self.num_noise],
             )
             _batch = self.process_fn(_batch, _buffer, indices)
             (losses_, clip_losses_, vf_losses_, ent_losses_) = self.learn(

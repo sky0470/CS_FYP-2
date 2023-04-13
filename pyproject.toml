@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pursuit_msg"
-version = "0.2.11"
+version = "0.2.12"
 dynamic = ["dependencies"]
 
 [tool.setuptools.dynamic]

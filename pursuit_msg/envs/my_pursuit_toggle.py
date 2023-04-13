@@ -50,7 +50,7 @@ def my_parallel_wrapper_fn_toggle(env_fn, seed=None):
 
         env = env_fn(**kwargs)
         env = aec_to_parallel_wrapper_toggle(env, seed)
-        env = MultiDiscreteToDiscreteMsg(env)
+        env = MultiDiscreteToDiscreteMsg(env, num_actions=10)
         return env
 
     return par_fn
