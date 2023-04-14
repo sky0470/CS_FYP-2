@@ -231,6 +231,8 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
     elif args.env == 'noise':
         from pursuit_msg.pursuit import my_parallel_env_noise as my_env
         task_parameter["has_noise"] = True
+    elif args.env == "toggle":
+        from pursuit_msg.pursuit import my_parallel_env_toggle as my_env, __version__ as env_version
     else:
         raise NotImplementedError(f"env '{args.env}' is not implemented")
 
@@ -245,7 +247,7 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
     args.state_shape = env.observation_space.shape or env.observation_space.n
     # args.action_shape = env.action_space.shape or env.action_space.n
     args.state_shape = args.state_shape[1:]
-    args.action_shape = 5
+    args.action_shape = 5 if args.env!="toggle" else 10
     if args.reward_threshold is None:
         default_reward_threshold = {"pursuit_v4": 1000}
         args.reward_threshold = default_reward_threshold.get(
