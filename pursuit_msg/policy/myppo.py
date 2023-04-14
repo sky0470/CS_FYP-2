@@ -54,12 +54,7 @@ class myPPOPolicy(PPOPolicy):
             batch.act_noise = to_torch_as(batch.act_noise, batch.v_s)
             with torch.no_grad():
                 b = self(batch)
-                if self.noise_shape[1] == 9:
-                    b_act_noise = batch.act_noise.reshape(batch.act_noise.shape[0], self.num_norm, -1).permute(2, 0, 1) #  noise_per_norm, btz, num_norm
-                    d_2_log_prob = b.dist_2.log_prob(b_act_noise).sum(0)
-                else:
-                    d_2_log_prob = b.dist_2.log_prob(batch.act_noise)
-                d_2_log_prob = d_2_log_prob.sum(-1, keepdim=True)
+                d_2_log_prob = b.dist_2.log_prob(batch.act_noise).sum(-1, keepdim=True)
                 batch.logp_old = b.dist.log_prob(torch.unsqueeze(batch.act, 1)) \
                                  + d_2_log_prob
         return batch
@@ -85,12 +80,10 @@ class myPPOPolicy(PPOPolicy):
                     ratio = dist.log_prob(torch.unsqueeze(minibatch.act, 1)) - minibatch.logp_old  # modified
                 else:
                     dist_2 = b.dist_2
-                    if self.noise_shape[1] == 9:
-                        b_act_noise = minibatch.act_noise.reshape(minibatch.act_noise.shape[0], self.num_norm, -1).permute(2, 0, 1) # noise_per_norm, btz, num_norm, 
-                        d_2_log_prob = b.dist_2.log_prob(b_act_noise).sum(0)
-                    else:
-                        d_2_log_prob = b.dist_2.log_prob(minibatch.act_noise)
-                    d_2_log_prob = d_2_log_prob.sum(-1, keepdim=True)
+                    d_2_log_prob = dist_2.log_prob(minibatch.act_noise).sum(-1, keepdim=True)
+                    ratio = dist.log_prob(torch.unsqueeze(minibatch.act, 1)) \
+                                     + d_2_log_prob
+
                     ratio = dist.log_prob(torch.unsqueeze(minibatch.act, 1)) \
                             + d_2_log_prob \
                             - minibatch.logp_old  # modified
@@ -185,7 +178,7 @@ class myPPOPolicy(PPOPolicy):
 
         # set logit for each agent
         logits = torch.empty(
-            [num_agents, training_num, num_actions + self.num_norm * 2], device=self.device
+            [num_agents, training_num, num_actions + self.num_norm * 2 * 2], device=self.device
         )
         state_ret = None
         for i in range(num_agents):
@@ -235,21 +228,26 @@ class myPPOPolicy(PPOPolicy):
         if self.num_noise: # the format of the NN output is: num_action + mu * num_noise+ sig * num_noise
             # pack all mu and sig tgt
             noise_shape = logits.shape[:2] + (self.num_norm,)
-            logits_noise_mu = logits[:, :, num_actions:num_actions + self.num_norm].reshape(logits.shape[0], -1)
+            logits_noise_mu = logits[:, :, num_actions:num_actions + self.num_norm*2].reshape(logits.shape[0], -1)
             # logits_noise_mu = logits_noise_mu.clone().mul(0) # set mu to 0
-            logits_noise_sig = logits[:, :, num_actions + self.num_norm:].reshape(logits.shape[0], -1)
+            logits_noise_sig = logits[:, :, num_actions + self.num_norm*2:].reshape(logits.shape[0], -1)
             logits_noise = (logits_noise_mu, logits_noise_sig)
             dist_2 = self.dist_2_fn(*logits_noise)
-            # if self._deterministic_eval and not self.training:
-            #     act_noise = logits_noise_mu.unsqueeze(0).repeat(self.noise_shape[1], *([1]*logits_noise_mu.ndim))
-            # else:
-            #     act_noise = dist_2.sample(torch.tensor([1]))
-
-            # act_noise = logits_noise_mu.unsqueeze(0).repeat(self.noise_shape[1], *([1]*logits_noise_mu.ndim))
-            act_noise = dist_2.sample(torch.tensor([self.noise_shape[1]]))
+            if self._deterministic_eval and not self.training:
+                act_noise = logits_noise_mu
+            else:
+                act_noise = dist_2.sample()
+            dist_noise = self.dist_2_fn(
+                act_noise[:, self.num_norm * num_agents:],
+                torch.sigmoid((act_noise[:, :self.num_norm * num_agents]) / 5) * 5 + 1e-6)
+            noise = dist_noise.sample(torch.tensor([self.noise_shape[1]]))
+            # print(act_noise.shape) training_num, agent_num * num_norm * 2
+            # print(noise.shape) noise_shape[1] training_num agent_num * num_norn
             act_noise = to_numpy(act_noise) # act_noise shape = (noise_per_norm, btz, num_agent*num_norm)
-            act_noise = act_noise.transpose((1,2,0)) # before reshape : (btz, num_agent*num_norm, noise_per_norm)
             act_noise = act_noise.reshape(act_noise.shape[0], -1)
+            noise = to_numpy(noise) # noise shape = (noise_per_norm, btz, num_agent*num_norm)
+            noise = noise.transpose((1,2,0)) # before reshape : (btz, num_agent*num_norm, noise_per_norm)
+            noise = noise.reshape(noise.shape[0], -1)
 
             obs = batch.obs[:, :, 0]
             # if self.noise_shape == (-1, 1):
@@ -258,7 +256,7 @@ class myPPOPolicy(PPOPolicy):
             #     obs[:, :, :, :, :2] += act_noise.reshape(noise_shape)[:,:, None, None]
             obs = obs.reshape(obs.shape[0], -1)
 
-            act_ = np.concatenate((act_[:, None], act_noise, obs), 1)
+            act_ = np.concatenate((act_[:, None], noise, act_noise, obs), 1)
             return Batch(logits=logits, act=act_, state=state_ret, dist=dist, dist_2=dist_2)
         else: # no noise
             act_ = np.concatenate((act_[:, None], batch.obs[:, :, 0].reshape(batch.obs.shape[0], -1) ),1)
@@ -305,6 +303,8 @@ class myPPOPolicy(PPOPolicy):
         batch_act = action(batch.act[:, 0])
         losses, clip_losses, vf_losses, ent_losses = [], [], [], []
         for i in range(num_agents):
+            an_start = 1 + num_agents * self.num_noise + i * self.num_norm * 2 # act, noise, act_noise
+            an_end = 1 + num_agents * self.num_noise + (i+1) * self.num_norm * 2
             _buffer_batch = Batch(
                 obs=np.expand_dims(buffer.obs[:, i], axis=1),
                 rew=buffer.rew[:, i],
@@ -316,7 +316,7 @@ class myPPOPolicy(PPOPolicy):
                 act = buffer_act[:, i],
                 # act_noise = buffer.act[:, i+1],
                 # use action as place holder to maintain shape for no noise
-                act_noise = buffer_act[:,i] if not self.num_noise else buffer.act[:, 1 + i * self.num_noise:1 + (i + 1) * self.num_noise],
+                act_noise = buffer_act[:,i] if not self.num_noise else buffer.act[:, an_start: an_end],
                 #act_noise = np.expand_dims(buffer.act[:, i+1], axis=1)
             )
             _buffer = ReplayBuffer(
@@ -350,7 +350,7 @@ class myPPOPolicy(PPOPolicy):
                 ),
                 act = batch_act[:, i],
                 # use action as place holder to maintain shape for no noise
-                act_noise = batch_act[:, i] if not self.num_noise else batch.act[:, 1 + i * self.num_noise:1 + (i + 1) * self.num_noise],
+                act_noise = batch_act[:, i] if not self.num_noise else batch.act[:, an_start: an_end],
             )
             _batch = self.process_fn(_batch, _buffer, indices)
             (losses_, clip_losses_, vf_losses_, ent_losses_) = self.learn(

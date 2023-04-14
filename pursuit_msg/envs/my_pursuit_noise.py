@@ -108,7 +108,7 @@ class aec_to_parallel_wrapper_noise(aec_to_parallel_wrapper):
             return observations, infos
 
     def step(self, actions):
-        (actions, noise, prev_obs) = actions
+        (actions, noise, act_noise, prev_obs) = actions
         actions = actions.astype(int)
         # prev_obs = prev_obs.reshape([5,3,3,5])
         actions = dict(zip(self.aec_env.agents, actions))
@@ -166,9 +166,14 @@ class aec_to_parallel_wrapper_noise(aec_to_parallel_wrapper):
                 return obs_noise_norm
 
             if self.noise_shape == (-1, 1):
-                obs_noise += noise[:, None, None, :] 
-                if self.obs_noise_norm:
-                    obs_noise = apply_obs_noise_norm(obs_noise)
+                if True:
+                    obs_noise += noise[:, None, None, :] 
+                    if self.obs_noise_norm:
+                        obs_noise = apply_obs_noise_norm(obs_noise)
+                else: # override here to change to toggle noise
+                    for i in range(5):
+                        if noise[i, 0] < 0:
+                            obs_noise[i] = 0
             elif self.noise_shape == (2, 1):
                 # obs_noise[:, :, :, :2] += noise[:, None, None, :]
                 obs_noise_slice = obs_noise[:, :, :, :2] + noise[:, None, None, :]

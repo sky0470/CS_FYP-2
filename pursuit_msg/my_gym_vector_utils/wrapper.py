@@ -64,11 +64,17 @@ class MultiDiscreteToDiscreteNoise(gym.ActionWrapper):
         self.has_noise = has_noise
         self.noise_shape = noise_shape
         self.num_noise_per_agent = abs(np.prod(noise_shape))
+        self.num_norm = abs(noise_shape[0])
         self.action_space = gym.spaces.Discrete(np.prod(nvec))
 
     def action(self, act: np.ndarray) -> np.ndarray:
-        noise = act[1:1 + self.num_agents * self.num_noise_per_agent]
-        prev_obs = act[1 + self.num_agents * self.num_noise_per_agent:]
+        idx = [1, self.num_agents * self.num_noise_per_agent, self.num_norm * 2 * self.num_agents]
+        split = np.split(act, np.cumsum(idx))
+        noise = split[1]
+        act_noise = split[2]
+        prev_obs = split[3]
+        # noise = act[1:1 + self.num_agents * self.num_noise_per_agent]
+        # prev_obs = act[1 + self.num_agents * self.num_noise_per_agent:]
 
         def action(act: np.ndarray) -> np.ndarray:
             # decode int to n-base representation
@@ -80,4 +86,4 @@ class MultiDiscreteToDiscreteNoise(gym.ActionWrapper):
         
         converted_act = action(act[0])
 
-        return (converted_act, noise, prev_obs)
+        return (converted_act, noise, act_noise, prev_obs)

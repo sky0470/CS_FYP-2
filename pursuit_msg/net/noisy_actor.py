@@ -59,7 +59,7 @@ class NoisyActor(Actor):
         )
         self.last_noise = MLP(
             input_dim,  # type: ignore
-            int(abs(noise_shape[0])) * 2,
+            int(abs(noise_shape[0])) * 2 * 2,
             hidden_sizes,
             device=self.device
         )
@@ -85,7 +85,7 @@ class NoisyActor(Actor):
             # split into act and noise
             logits_act = logits[:, :self.action_shape]
             logits_noise = logits[:, self.action_shape:]
-            logits_noise[:, self.num_norm:] = torch.sigmoid((logits_noise[:, self.num_norm:]) / 5) * 5 + 1e-6
+            logits_noise[:, self.num_norm*2:] = torch.sigmoid((logits_noise[:, self.num_norm*2:]) / 5) * 5 + 1e-6
 
             if self.softmax_output:
                 # only apply to action
