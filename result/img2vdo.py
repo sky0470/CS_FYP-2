@@ -17,25 +17,29 @@ if __name__ == "__main__":
     args = get_args()
 
     # read filenames
-    filenames = glob.glob(f'{args.path}/*.png')
+
+    paths = glob.glob(f'{args.path}')
+    for path in paths:
+        print(f"collecting files under {path}")
+        filenames = glob.glob(f'{path}/frame*.png')
     
-    # create video writer
-    border_size = 2
-    img = cv2.imread(filenames[0])
-    frame_size = (img.shape[1] + border_size * 2, img.shape[0] + border_size * 2)
-    path_vdo = os.path.join(args.path, args.vdo_name)
-    out = cv2.VideoWriter(path_vdo,
-                          cv2.VideoWriter_fourcc(*'h264'), 
-                          args.fps, 
-                          frame_size)
+        # create video writer
+        border_size = 2
+        img = cv2.imread(filenames[0])
+        frame_size = (img.shape[1] + border_size * 2, img.shape[0] + border_size * 2)
+        path_vdo = os.path.join(path, args.vdo_name)
+        out = cv2.VideoWriter(path_vdo,
+                            cv2.VideoWriter_fourcc(*'h264'), 
+                            args.fps, 
+                            frame_size)
 
-    # write to video 
-    for filename in filenames:
-        print(f"writing filename: {filename}")
-        img = cv2.imread(filename)
-        img = cv2.copyMakeBorder(img, border_size, border_size, border_size, border_size, cv2.BORDER_CONSTANT, value=[255, 255, 255])
-        out.write(img)
+        # write to video 
+        for filename in filenames:
+            print(f"writing filename: {filename}")
+            img = cv2.imread(filename)
+            img = cv2.copyMakeBorder(img, border_size, border_size, border_size, border_size, cv2.BORDER_CONSTANT, value=[255, 255, 255])
+            out.write(img)
 
-    out.release()
+        out.release()
 
-    print(f"Done, video location: {path_vdo} (frame_size: {frame_size}, fps: {args.fps})")
+        print(f"Done, video location: {path_vdo} (frame_size: {frame_size}, fps: {args.fps})")
