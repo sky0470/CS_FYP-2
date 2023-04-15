@@ -107,7 +107,7 @@ class aec_to_parallel_wrapper_message(aec_to_parallel_wrapper):
     def step(self, actions):
         (actions, prev_obs) = actions
         actions = actions.astype(int)
-        prev_obs = prev_obs.reshape([5,3,3,5])
+        # prev_obs = prev_obs.reshape([5,3,3,5])
         actions = dict(zip(self.aec_env.agents, actions))
 
         rewards = defaultdict(int)
