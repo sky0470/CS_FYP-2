@@ -38,16 +38,23 @@ def plot_graph(data, path, has_noise):
     rwds_detail = np.array(data["rews_detail"])
     num_agents = rwds.shape[1]
 
+    # plot reward at different rank
+    ranks = np.mean(np.sort(rwds, 1), 0)
+    mean = [ranks.mean()] * num_agents
+    x = np.arange(num_agents, step=1)
+    print(f"mean: {mean}")
 
-    tmp = np.mean(np.sort(rwds, 1), 0)
-    mean = [tmp.mean()] * 5
-
-    plt.plot(tmp, 'o')
-    plt.plot(mean, '-')
+    plt.plot(x, ranks, 'o')
+    plt.plot(x, mean, '-')
+    plt.xticks(x)
+    plt.yticks(np.arange(0, 100, step=10))
+    plt.ylim(0, 100)
+    plt.xlabel("rank")
+    plt.ylabel("reward")
+    plt.title("reward of agents at different rank")
     img_path = os.path.join(path, "rewards-summary.png")
     plt.savefig(img_path, dpi=200)
     plt.close()
-
 
     if has_noise:
         if noise_mu.ndim != 4:
