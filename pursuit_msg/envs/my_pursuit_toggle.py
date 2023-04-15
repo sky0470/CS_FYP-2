@@ -108,6 +108,7 @@ class aec_to_parallel_wrapper_toggle(aec_to_parallel_wrapper):
         (actions, prev_obs) = actions
         actions = actions.astype(int)
         toggle = actions // 5
+        # print(toggle) # uncomment it when u visualize
         actions = actions % 5
         actions = dict(zip(self.aec_env.agents, actions))
 

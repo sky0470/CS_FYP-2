@@ -42,7 +42,7 @@ def plot_graph(data, path, has_noise):
     ranks = np.mean(np.sort(rwds, 1), 0)
     mean = [ranks.mean()] * num_agents
     x = np.arange(num_agents, step=1)
-    print(f"mean: {mean}")
+    print(f"mean: {mean}, ranks: {ranks}")
 
     plt.plot(x, ranks, 'o')
     plt.plot(x, mean, '-')
@@ -348,7 +348,11 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
                                 visualize=True
                                 )
         result = collector.collect(n_episode=args.n_episode, render=args.render)
-        pprint.pprint(result)
+        # pprint.pprint(result)
+        pprint.pprint(dict(
+            rew=result["rew"],
+            rew_std=result["rew_std"]
+        ))
 
         result_json = {
             k: v.tolist() if isinstance(v, np.ndarray) else v for k, v in result.items() 
