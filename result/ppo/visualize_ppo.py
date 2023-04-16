@@ -29,7 +29,7 @@ from pursuit_msg.net.msgnet import MsgNet
 from pursuit_msg.net.noisy_actor import NoisyActor
 from pursuit_msg.my_collector import MyCollector
 
-def plot_graph(data, path, has_noise):
+def plot_graph(data, path, has_noise, summary_only):
     n_episode = data["n/ep"]
     rwds = np.array(data["rews"])
     max_cycles = data["len"]
@@ -44,6 +44,8 @@ def plot_graph(data, path, has_noise):
     x = np.arange(num_agents, step=1)
     print(f"mean: {mean}, ranks: {ranks}")
 
+    if summary_only:
+        return
     plt.plot(x, ranks, 'o')
     plt.plot(x, mean, '-')
     plt.xticks(x)
@@ -373,8 +375,7 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         print(f"summary generated to {render_vdo_path}")
 
         # plot noise
-        if not args.summary_only:
-            plot_graph(result, render_vdo_path, task_parameter["has_noise"])
+        plot_graph(result, render_vdo_path, task_parameter["has_noise"], args.summary_only)
 
 
         # rews, lens = result["rews"], result["lens"]
