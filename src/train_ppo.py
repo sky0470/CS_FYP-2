@@ -75,6 +75,8 @@ def get_args():
     parser.add_argument('--noise-shape', type=int, nargs=2, default=(-1, 1))
     parser.add_argument('--apply-noise', type=int, default=1)
     parser.add_argument("--obs-noise-norm", type=int, default=0)
+    parser.add_argument("--max-cycle", type=int, default=40)
+    parser.add_argument("--urgency-reward", type=float, default=-0.05)
 
     # switch env
     parser.add_argument('--env', type=str, default=None)
@@ -105,13 +107,13 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         x_size=10,
         y_size=10,
         obs_range=3,
-        max_cycles=40,
+        max_cycles=args.max_cycle,
 
         n_evaders=2,
         n_pursuers=5,
 
         catch_reward=0.5,
-        urgency_reward=-0.05,
+        urgency_reward=args.urgency_reward,
         n_catch=1,
         tag_reward=0,
         catch_reward_ratio=None, # redefine later
@@ -351,6 +353,10 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         )
         logger.wandb_run.save(ckpt_path, base_path=log_path)
         return ckpt_path
+    
+    def reward_metric(rewards):
+        rwd = rewards.max(axis=1)
+        return rwd
 
     # trainer
     result = onpolicy_trainer(
@@ -360,12 +366,13 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         args.epoch,
         args.step_per_epoch,
         args.repeat_per_collect,
-        args.test_num,
+        args.test_num * 5,
         args.batch_size,
         step_per_collect=args.step_per_collect,
         stop_fn=stop_fn,
         save_best_fn=save_best_fn,
         save_checkpoint_fn=save_checkpoint_fn,
+        reward_metric=reward_metric,
         logger=logger,
     )
 
