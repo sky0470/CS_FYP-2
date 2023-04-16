@@ -153,9 +153,13 @@ class aec_to_parallel_wrapper_toggle(aec_to_parallel_wrapper):
 
         for idx, t in enumerate(toggle):
             if t:
-                prev_obs[idx] = 0
+                prev_obs[idx] = 0 # mask all
+            # if t:
+                # prev_obs[idx][:, :, :2] = 0# mask prey and predetor dim
+                # prev_obs[idx][1, 1, 0] = 1 # see ifself
 
-        dist = np.array([[-1 if i==j else self.cal_dist(o, obs[i]) for (j, o) in enumerate(obs)] for i in range(obs.shape[0])])
+        # dist = np.array([[-1 if i==j else self.cal_dist(o, obs[i]) for (j, o) in enumerate(obs)] for i in range(obs.shape[0])])
+        dist = np.array([[-1 if i==j else np.inf if toggle[j] else self.cal_dist(o, obs[i]) for (j, o) in enumerate(obs)] for i in range(obs.shape[0])]) # dist=inf if toggled
         order = dist.argsort()
         observations = np.array([np.vstack((obs[i][None,:], prev_obs[order[i][1:]])) for i in range( obs.shape[0])])
         # observations = np.array([prev_obs[order[i]] for i in range(obs.shape[0])])

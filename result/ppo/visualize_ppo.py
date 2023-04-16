@@ -42,10 +42,8 @@ def plot_graph(data, path, has_noise, summary_only):
     ranks = np.mean(np.sort(rwds, 1), 0)
     mean = [ranks.mean()] * num_agents
     x = np.arange(num_agents, step=1)
-    print(f"mean: {mean}, ranks: {ranks}")
+    print(f"mean: {mean[0]:.2f}, ranks: {ranks}")
 
-    if summary_only:
-        return
     plt.plot(x, ranks, 'o')
     plt.plot(x, mean, '-')
     plt.xticks(x)
@@ -57,6 +55,9 @@ def plot_graph(data, path, has_noise, summary_only):
     img_path = os.path.join(path, "rewards-summary.png")
     plt.savefig(img_path, dpi=200)
     plt.close()
+
+    if summary_only:
+        return
 
     if has_noise:
         if noise_mu.ndim != 4:
