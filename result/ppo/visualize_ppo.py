@@ -128,7 +128,7 @@ def get_args():
     parser.add_argument("--test-num", type=int, default=100)
     parser.add_argument("--logdir", type=str, default="log")
     # parser.add_argument("--render", type=float, default=0.0)
-    parser.add_argument("--render", type=float, default=0.001)
+    parser.add_argument("--render", type=float, default=0.000001)
     parser.add_argument(
         "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu"
     )
@@ -155,7 +155,8 @@ def get_args():
 
     parser.add_argument('--resume-path', type=str, default=None)
     # visualize special
-    parser.add_argument("--n_episode", type=int, default=10)
+    parser.add_argument("--n-episode", type=int, default=10)
+    parser.add_argument("--summary-only", type=int, default=0)
     args = parser.parse_args()
 
     # filter overrode args
@@ -183,6 +184,7 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
 
         catch_reward=0.5,
         urgency_reward=-0.05,
+        # urgency_reward=-0.1,
         n_catch=1,
         tag_reward=0,
         catch_reward_ratio=None, # redefine later
@@ -229,6 +231,8 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         from pursuit_msg.pursuit import my_parallel_env as my_env
     elif args.env == "msg":
         from pursuit_msg.pursuit import my_parallel_env_message as my_env
+    elif args.env == "no-msg":
+        from pursuit_msg.pursuit import my_parallel_env_no_message as my_env
     elif args.env == "grid-loc":
         from pursuit_msg.pursuit import my_parallel_env_grid_loc as my_env
     elif args.env == "full":
@@ -331,13 +335,20 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
                 render_vdo_path = f"{args.logdir}-{cnt}"
             os.makedirs(render_vdo_path)
 
-        envs = DummyVectorEnv(
-            [
-                lambda: my_env(render_mode="human", 
-                               render_vdo_path=render_vdo_path, 
-                               **task_parameter),
-            ]
-        )
+        if not args.summary_only:
+            envs = DummyVectorEnv(
+                [
+                    lambda: my_env(render_mode="human",
+                                   render_vdo_path=render_vdo_path,
+                                   **task_parameter),
+                ]
+            )
+        else:
+            envs = DummyVectorEnv(
+                [
+                    lambda: my_env(**task_parameter)
+                ]
+            )
         envs.seed(args.seed)
 
         policy.eval()
@@ -345,9 +356,9 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
                                 num_actions=args.action_shape,
                                 has_noise=task_parameter["has_noise"],
                                 noise_shape=task_parameter["noise_shape"],
-                                visualize=True
+                                visualize=not args.summary_only,
                                 )
-        result = collector.collect(n_episode=args.n_episode, render=args.render)
+        result = collector.collect(n_episode=args.n_episode, render=None if args.summary_only else args.render)
         pprint.pprint(dict(
             rew=result["rew"],
             rew_std=result["rew_std"]
@@ -362,8 +373,9 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         print(f"summary generated to {render_vdo_path}")
 
         # plot noise
-        plot_graph(result, render_vdo_path, task_parameter["has_noise"])
-            
+        if not args.summary_only:
+            plot_graph(result, render_vdo_path, task_parameter["has_noise"])
+
 
         # rews, lens = result["rews"], result["lens"]
         # print(f"Final reward: {rews.mean()}, length: {lens.mean()}")

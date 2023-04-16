@@ -155,6 +155,8 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         from pursuit_msg.pursuit import my_parallel_env as my_env, __version__ as env_version
     elif args.env == "msg":
         from pursuit_msg.pursuit import my_parallel_env_message as my_env, __version__ as env_version
+    elif args.env == "no-msg":
+        from pursuit_msg.pursuit import my_parallel_env_no_message as my_env, __version__ as env_version
     elif args.env == "grid-loc":
         from pursuit_msg.pursuit import my_parallel_env_grid_loc as my_env, __version__ as env_version
     elif args.env == "full":
