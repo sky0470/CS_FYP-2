@@ -8,6 +8,7 @@
 *.pth
 *.pickle
 *.pkl
+*.zip
 
 *.json
 log_file*
