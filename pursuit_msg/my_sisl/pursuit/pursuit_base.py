@@ -489,8 +489,8 @@ class Pursuit:
         self.draw_evaders()
         self.draw_pursuers()
         self.draw_agent_counts()
-        if self.clock:
-            self.draw_info()
+        # if self.clock:
+            # self.draw_info()
 
         observation = pygame.surfarray.pixels3d(self.screen)
         new_observation = np.copy(observation)
