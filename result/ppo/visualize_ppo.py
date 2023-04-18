@@ -131,7 +131,7 @@ def get_args():
     parser.add_argument("--test-num", type=int, default=100)
     parser.add_argument("--logdir", type=str, default="log")
     # parser.add_argument("--render", type=float, default=0.0)
-    parser.add_argument("--render", type=float, default=0.000001)
+    parser.add_argument("--render", type=float, default=0.01)
     parser.add_argument(
         "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu"
     )
@@ -186,7 +186,7 @@ def test_ppo(args=get_args()[0], args_overrode=dict()):
         n_pursuers=5,
 
         catch_reward=0.5,
-        urgency_reward=-0.05,
+        urgency_reward=-0.5,
         # urgency_reward=-0.1,
         n_catch=1,
         tag_reward=0,
