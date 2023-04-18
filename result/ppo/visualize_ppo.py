@@ -29,8 +29,7 @@ from pursuit_msg.net.msgnet import MsgNet
 from pursuit_msg.net.noisy_actor import NoisyActor
 from pursuit_msg.my_collector import MyCollector
 
-
-def plot_graph(data, path, has_noise):
+def plot_graph(data, path, has_noise, summary_only):
     n_episode = data["n/ep"]
     rwds = np.array(data["rews"])
     max_cycles = data["len"]
@@ -38,6 +37,27 @@ def plot_graph(data, path, has_noise):
     noise_sig = np.array(data["noises_sig"])
     rwds_detail = np.array(data["rews_detail"])
     num_agents = rwds.shape[1]
+
+    # plot reward at different rank
+    ranks = np.mean(np.sort(rwds, 1), 0)
+    mean = [ranks.mean()] * num_agents
+    x = np.arange(num_agents, step=1)
+    print(f"mean: {mean[0]:.2f}, ranks: {ranks}")
+
+    plt.plot(x, ranks, 'o')
+    plt.plot(x, mean, '-')
+    plt.xticks(x)
+    plt.yticks(np.arange(0, 100, step=10))
+    plt.ylim(0, 100)
+    plt.xlabel("rank")
+    plt.ylabel("reward")
+    plt.title("reward of agents at different rank")
+    img_path = os.path.join(path, "rewards-summary.png")
+    plt.savefig(img_path, dpi=200)
+    plt.close()
+
+    if summary_only:
+        return
 
     if has_noise:
         if noise_mu.ndim != 4:
@@ -92,7 +112,6 @@ def plot_graph(data, path, has_noise):
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path", type=str, default=None)
     parser.add_argument("--task", type=str, default="pursuit_v4")
     parser.add_argument("--reward-threshold", type=float, default=None)
     parser.add_argument("--seed", type=int, default=None)
@@ -112,7 +131,7 @@ def get_args():
     parser.add_argument("--test-num", type=int, default=100)
     parser.add_argument("--logdir", type=str, default="log")
     # parser.add_argument("--render", type=float, default=0.0)
-    parser.add_argument("--render", type=float, default=0.001)
+    parser.add_argument("--render", type=float, default=0.01)
     parser.add_argument(
         "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu"
     )
@@ -137,13 +156,22 @@ def get_args():
     # switch env
     parser.add_argument('--env', type=str, default=None)
 
+    parser.add_argument('--resume-path', type=str, default=None)
     # visualize special
-    parser.add_argument("--n_episode", type=int, default=10)
+    parser.add_argument("--n-episode", type=int, default=10)
+    parser.add_argument("--summary-only", type=int, default=0)
     args = parser.parse_args()
-    return args
+
+    # filter overrode args
+    args_overrode = {
+        opt.dest: getattr(args, opt.dest)
+        for opt in parser._option_string_actions.values()
+        if hasattr(args, opt.dest) and opt.default != getattr(args, opt.dest)
+    }
+    return args, args_overrode
 
 
-def test_ppo(args=get_args()):
+def test_ppo(args=get_args()[0], args_overrode=dict()):
     task_parameter = dict(
         shared_reward=False,
         surround=False,
@@ -158,7 +186,8 @@ def test_ppo(args=get_args()):
         n_pursuers=5,
 
         catch_reward=0.5,
-        urgency_reward=-0.05,
+        urgency_reward=-0.5,
+        # urgency_reward=-0.1,
         n_catch=1,
         tag_reward=0,
         catch_reward_ratio=None, # redefine later
@@ -171,12 +200,42 @@ def test_ppo(args=get_args()):
         # note: only (2, 1), (-1, 1) are implemented, if has_noise is true
     )
 
+    if args.seed is None:
+        args.seed = int(np.random.rand() * 100000)
+        args_overrode["seed"] = args.seed
+        print(f"Seed is not given in arguments")
+    print(f"Seed is {args.seed}")
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+
+    if args.resume_path:
+        # load from existing checkpoint
+        print(f"Loading agent under {args.resume_path}")
+        if os.path.exists(args.resume_path):
+            checkpoint = torch.load(args.resume_path, map_location=args.device)
+            """
+            if "args" in checkpoint:
+                args = checkpoint["args"]
+                args.device = "cuda" if torch.cuda.is_available() else "cpu"
+                args.n_episode = 10
+                for k, v in args_overrode.items():
+                    setattr(args, k, v)
+            if "task_parameter" in checkpoint:
+                task_parameter = checkpoint["task_parameter"]
+                task_parameter["apply_noise"] = args.apply_noise
+            """
+        else:
+            print("Fail to restore policy and optim.")
+            exit()
+
     # switch env
     print(f"env: {args.env}")
     if args.env is None:
         from pursuit_msg.pursuit import my_parallel_env as my_env
     elif args.env == "msg":
         from pursuit_msg.pursuit import my_parallel_env_message as my_env
+    elif args.env == "no-msg":
+        from pursuit_msg.pursuit import my_parallel_env_no_message as my_env
     elif args.env == "grid-loc":
         from pursuit_msg.pursuit import my_parallel_env_grid_loc as my_env
     elif args.env == "full":
@@ -186,16 +245,10 @@ def test_ppo(args=get_args()):
     elif args.env == 'noise':
         from pursuit_msg.pursuit import my_parallel_env_noise as my_env
         task_parameter["has_noise"] = True
+    elif args.env == "toggle":
+        from pursuit_msg.pursuit import my_parallel_env_toggle as my_env, __version__ as env_version
     else:
         raise NotImplementedError(f"env '{args.env}' is not implemented")
-
-    # seed
-    if args.seed is None:
-        args.seed = int(np.random.rand() * 10000)
-        print(f"Seed is not given in arguments")
-    print(f"Seed is {args.seed}")
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
 
     # redefine task_param 
     task_parameter["catch_reward_ratio"] = args.catch_reward_ratio or [num for num in range(task_parameter["n_pursuers"] + 1)]
@@ -208,7 +261,7 @@ def test_ppo(args=get_args()):
     args.state_shape = env.observation_space.shape or env.observation_space.n
     # args.action_shape = env.action_space.shape or env.action_space.n
     args.state_shape = args.state_shape[1:]
-    args.action_shape = 5
+    args.action_shape = 5 if args.env!="toggle" else 10
     if args.reward_threshold is None:
         default_reward_threshold = {"pursuit_v4": 1000}
         args.reward_threshold = default_reward_threshold.get(
@@ -218,17 +271,11 @@ def test_ppo(args=get_args()):
     # model
     net = MsgNet(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
     # net = Net(args.state_shape, hidden_sizes=args.hidden_sizes, device=args.device)
-    if torch.cuda.is_available():
-        actor = DataParallelNet(
-            Actor(net, args.action_shape, device=None).to(args.device)
-        )
-        critic = DataParallelNet(Critic(net, device=None).to(args.device))
+    if task_parameter["has_noise"]:
+        actor = NoisyActor(net, args.action_shape, device=args.device, filter_noise=True, noise_shape=task_parameter["noise_shape"]).to(args.device)
     else:
-        if task_parameter["has_noise"]:
-            actor = NoisyActor(net, args.action_shape, device=args.device, filter_noise=True, noise_shape=task_parameter["noise_shape"]).to(args.device)
-        else:
-            actor = Actor(net, args.action_shape, device=args.device).to(args.device)
-        critic = Critic(net, device=args.device).to(args.device)
+        actor = Actor(net, args.action_shape, device=args.device).to(args.device)
+    critic = Critic(net, device=args.device).to(args.device)
     actor_critic = ActorCritic(actor, critic)
     
     # orthogonal initialization
@@ -267,12 +314,20 @@ def test_ppo(args=get_args()):
         advantage_normalization=args.norm_adv,
         recompute_advantage=args.recompute_adv,
     )
-    pprint.pprint(dict(task_parameter=task_parameter))
+
+    pprint.pprint(dict(
+        args=vars(args),
+        args_overrode=args_overrode,
+        task_parameter=task_parameter,
+    ))
 
     if __name__ == "__main__":
-        checkpoint = torch.load(args.path, map_location=args.device)
-        # model = {k.replace(".net.module", ""): v for k, v in checkpoint.items()}
-        policy.load_state_dict(checkpoint["model"])
+        checkpoint = torch.load(args.resume_path, map_location=args.device)
+        if isinstance(checkpoint, dict):
+            policy.load_state_dict(checkpoint["model"])
+        else:
+            model = {k.replace(".net.module", ""): v for k, v in checkpoint.items()}
+            policy.load_state_dict(model)
 
         render_vdo_path = args.logdir
         if render_vdo_path:
@@ -283,13 +338,20 @@ def test_ppo(args=get_args()):
                 render_vdo_path = f"{args.logdir}-{cnt}"
             os.makedirs(render_vdo_path)
 
-        envs = DummyVectorEnv(
-            [
-                lambda: my_env(render_mode="human", 
-                               render_vdo_path=render_vdo_path, 
-                               **task_parameter),
-            ]
-        )
+        if not args.summary_only:
+            envs = DummyVectorEnv(
+                [
+                    lambda: my_env(render_mode="human",
+                                   render_vdo_path=render_vdo_path,
+                                   **task_parameter),
+                ]
+            )
+        else:
+            envs = DummyVectorEnv(
+                [
+                    lambda: my_env(**task_parameter)
+                ]
+            )
         envs.seed(args.seed)
 
         policy.eval()
@@ -297,10 +359,13 @@ def test_ppo(args=get_args()):
                                 num_actions=args.action_shape,
                                 has_noise=task_parameter["has_noise"],
                                 noise_shape=task_parameter["noise_shape"],
-                                visualize=True
+                                visualize=not args.summary_only,
                                 )
-        result = collector.collect(n_episode=args.n_episode, render=args.render)
-        pprint.pprint(result)
+        result = collector.collect(n_episode=args.n_episode, render=None if args.summary_only else args.render)
+        pprint.pprint(dict(
+            rew=result["rew"],
+            rew_std=result["rew_std"]
+        ))
 
         result_json = {
             k: v.tolist() if isinstance(v, np.ndarray) else v for k, v in result.items() 
@@ -311,12 +376,13 @@ def test_ppo(args=get_args()):
         print(f"summary generated to {render_vdo_path}")
 
         # plot noise
-        plot_graph(result, render_vdo_path, task_parameter["has_noise"])
-            
+        plot_graph(result, render_vdo_path, task_parameter["has_noise"], args.summary_only)
+
 
         # rews, lens = result["rews"], result["lens"]
         # print(f"Final reward: {rews.mean()}, length: {lens.mean()}")
 
 
 if __name__ == "__main__":
-    test_ppo(get_args())
+    args, args_overrode = get_args()
+    test_ppo(args, args_overrode)
