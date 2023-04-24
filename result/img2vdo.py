@@ -35,7 +35,7 @@ if __name__ == "__main__":
 
         # write to video 
         for filename in filenames:
-            print(f"writing filename: {filename}")
+            # print(f"writing filename: {filename}")
             img = cv2.imread(filename)
             img = cv2.copyMakeBorder(img, border_size, border_size, border_size, border_size, cv2.BORDER_CONSTANT, value=[255, 255, 255])
             out.write(img)

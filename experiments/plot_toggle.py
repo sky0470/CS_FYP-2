@@ -40,7 +40,8 @@ def plot_graph(data, path, has_noise):
 
     def plot_toggle(ep):
         df = pd.DataFrame(toggle_eps[ep], columns=np.arange(num_agents))
-        df.plot.bar(subplots=True, xlabel="step", ylabel="hide?", legend=False, title=[f"episode {ep + 1}/agent {i}" for i in range(num_agents)], xticks=np.arange(40, step=5), figsize=(8, 6))
+        # df.plot.bar(subplots=True, xlabel="step", ylabel="mask", legend=False, title=[f"episode {ep + 1}/agent {i}" for i in range(num_agents)], xticks=np.arange(max_cycles, step=5), figsize=(8, 6))
+        df.plot.bar(subplots=True, xlabel="step", ylabel="mask", legend=False, title=[f"P{i}" for i in range(num_agents)], xticks=np.arange(max_cycles, step=5), figsize=(8, 6), yticks=[])
         plt.tight_layout()
         # plt.show()
         img_path = os.path.join(path, f"render-{ep + 1:02d}", "toggle.png")
