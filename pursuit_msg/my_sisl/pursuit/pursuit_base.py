@@ -369,7 +369,17 @@ class Pursuit:
                 int(self.pixel_scale * x + self.pixel_scale / 2),
                 int(self.pixel_scale * y + self.pixel_scale / 2),
             )
-            col = (255, 0, 0)
+            overlap = False
+            for i in range(self.evader_layer.n_agents()):
+                x_, y_ = self.evader_layer.get_position(i)
+                if (x, y) == (x_, y_):
+                    overlap = True
+                    break
+            if overlap:
+                # col = (204, 153, 255) # light purple
+                col = (174, 56, 218) # dark purple
+            else:
+                col = (255, 0, 0)
             pygame.draw.circle(self.screen, col, center, int(self.pixel_scale / 3))
         # print("-"*20)
 
@@ -391,6 +401,9 @@ class Pursuit:
         agent_positions = defaultdict(int)
         evader_positions = defaultdict(int)
 
+        tmp = {}
+        tmpe = {}
+        tmpp = {}
         for i in range(self.evader_layer.n_agents()):
             x, y = self.evader_layer.get_position(i)
             evader_positions[(x, y)] += 1
@@ -400,8 +413,16 @@ class Pursuit:
                 self.pixel_scale * y + self.pixel_scale // 2,
             )
             # evader id
-            text = font_small.render(f"E{i}", False, (255, 255, 255))
-            self.screen.blit(text, (pos_x - self.pixel_scale * 2 // 3, pos_y - self.pixel_scale * 2// 3))
+            # text = font_small.render(f"E{i}", False, (255, 255, 255))
+            if (pos_x, pos_y) in tmp.keys():
+                tmp[(pos_x, pos_y)] = tmp[(pos_x, pos_y)]+f", E{i}"
+            else:
+                tmp[(pos_x, pos_y)] =f"E{i}"
+            if (pos_x, pos_y) in tmpe.keys():
+                tmpe[(pos_x, pos_y)] = tmpe[(pos_x, pos_y)]+f", E{i}"
+            else:
+                tmpe[(pos_x, pos_y)] =f"E{i}"
+            # self.screen.blit(text, (pos_x - self.pixel_scale * 2 // 3, pos_y - self.pixel_scale * 2// 3))
 
         for i in range(self.pursuer_layer.n_agents()):
             x, y = self.pursuer_layer.get_position(i)
@@ -412,10 +433,30 @@ class Pursuit:
                 self.pixel_scale * y + self.pixel_scale // 2,
             )
             # agent id
-            text = font_small.render(f"P{i}", False, (255, 255, 255))
-            self.screen.blit(text, (pos_x - self.pixel_scale * 2 // 3, pos_y - self.pixel_scale * 2 // 3))
+            # text = font_small.render(f"P{i}", False, (255, 255, 255))
+            if (pos_x, pos_y) in tmp.keys():
+                tmp[(pos_x, pos_y)] = tmp[(pos_x, pos_y)]+f", {i}"
+            else:
+                tmp[(pos_x, pos_y)] =f"P{i}"
+            if (pos_x, pos_y) in tmpp.keys():
+                tmpp[(pos_x, pos_y)] = tmpp[(pos_x, pos_y)]+f", {i}"
+            else:
+                tmpp[(pos_x, pos_y)] =f"P{i}"
+            # self.screen.blit(text, (pos_x - self.pixel_scale * 2 // 3, pos_y - self.pixel_scale * 2 // 3))
+        # for (pos_x, pos_y), t in tmp.items():
+            # text = font_small.render(t, False, (255, 255, 255))
+            # self.screen.blit(text, (pos_x - self.pixel_scale * 2 // 3, pos_y - self.pixel_scale * 2 // 3))
             
+        for (pos_x, pos_y), t in tmpe.items():
+            # text = font_small.render(t, False, (0, 255, 68)) # green
+            text = font_small.render(t, False, (255, 255, 255)) # white
+            self.screen.blit(text, (pos_x - self.pixel_scale * 2 // 3, pos_y - self.pixel_scale * 1 // 3))
+        for (pos_x, pos_y), t in tmpp.items():
+            # text = font_small.render(t, False, (255, 255, 0)) # yellow
+            text = font_small.render(t, False, (255, 255, 255)) # white
+            self.screen.blit(text, (pos_x - self.pixel_scale * 2 // 3, pos_y - self.pixel_scale * 2 // 3))
 
+        """
         for (x, y) in evader_positions:
             (pos_x, pos_y) = (
                 self.pixel_scale * x + self.pixel_scale // 2,
@@ -453,7 +494,7 @@ class Pursuit:
             text = font.render(count_text, False, (255, 255, 0))
 
             self.screen.blit(text, (pos_x, pos_y - self.pixel_scale // 2))
-
+        """
     def render(self):
         if self.render_mode is None:
             gymnasium.logger.warn(
